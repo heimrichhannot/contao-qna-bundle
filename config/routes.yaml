@@ -1,0 +1,7 @@
+qna_controllers:
+    resource:
+        path: ../src/Controller/
+        namespace: HeimrichHannot\QnaBundle\Controller
+    type: attribute
+    defaults:
+        _scope: frontend

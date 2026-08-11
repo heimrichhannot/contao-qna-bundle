@@ -1,0 +1,49 @@
+{
+    "name": "heimrichhannot/contao-qna-bundle",
+    "description": "Event question-and-answer sessions for Contao 5.7.",
+    "type": "contao-bundle",
+    "license": "LGPL-3.0-or-later",
+    "require": {
+        "php": "^8.4",
+        "contao/manager-plugin": "^2.3",
+        "doctrine/dbal": "^3.8 || ^4.0",
+        "symfony/config": "^7.4",
+        "symfony/dependency-injection": "^7.4",
+        "symfony/http-foundation": "^7.4",
+        "symfony/http-kernel": "^7.4",
+        "symfony/routing": "^7.4",
+        "symfony/security-bundle": "^7.4",
+        "symfony/security-csrf": "^7.4",
+        "symfony/translation-contracts": "^3.0",
+        "symfony/yaml": "^7.4",
+        "twig/twig": "^3.21"
+    },
+    "require-dev": {
+        "contao/core-bundle": "^5.7",
+        "friendsofphp/php-cs-fixer": "^3.85",
+        "phpstan/phpstan": "^2.1",
+        "phpstan/phpstan-symfony": "^2.0",
+        "phpunit/phpunit": "^12.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "HeimrichHannot\\QnaBundle\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "HeimrichHannot\\QnaBundle\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "contao-manager-plugin": "HeimrichHannot\\QnaBundle\\ContaoManager\\Plugin"
+    },
+    "config": {
+        "allow-plugins": {
+            "contao-components/installer": true,
+            "contao/manager-plugin": true,
+            "php-http/discovery": false
+        },
+        "sort-packages": true
+    }
+}
