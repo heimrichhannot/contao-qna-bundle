@@ -1,0 +1,16 @@
+<turbo-frame id="{{ frame_id }}" class="qna-questions" data-qna-frame="questions">
+    {% if questions is empty %}
+        <p class="qna-empty">{{ 'qna.questions.empty'|trans({}, 'contao_default') }}</p>
+    {% else %}
+        <ol class="qna-question-list">
+            {% for question in questions %}
+                {% include '@HeimrichHannotQna/qna/question.html.twig' with {
+                    question: question,
+                    show_vote_button: show_vote_buttons,
+                    vote_url: vote_urls[question.id]|default(null),
+                    request_token: request_token
+                } only %}
+            {% endfor %}
+        </ol>
+    {% endif %}
+</turbo-frame>

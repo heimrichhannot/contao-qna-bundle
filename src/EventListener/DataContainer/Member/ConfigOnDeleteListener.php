@@ -6,18 +6,13 @@ namespace HeimrichHannot\QnaBundle\EventListener\DataContainer\Member;
 
 use Contao\CoreBundle\DependencyInjection\Attribute\AsCallback;
 use Contao\DataContainer;
-use Doctrine\DBAL\Connection;
-use HeimrichHannot\QnaBundle\Repository\QnaQuestionRepository;
-use HeimrichHannot\QnaBundle\Repository\QnaVoteRepository;
+use HeimrichHannot\QnaBundle\Service\MemberDataEraser;
 
 #[AsCallback(table: 'tl_member', target: 'config.ondelete')]
 final readonly class ConfigOnDeleteListener
 {
-    public function __construct(
-        private Connection $connection,
-        private QnaQuestionRepository $questionRepository,
-        private QnaVoteRepository $voteRepository,
-    ) {
+    public function __construct(private MemberDataEraser $memberDataEraser)
+    {
     }
 
     public function __invoke(DataContainer $dataContainer): void
@@ -26,11 +21,6 @@ final readonly class ConfigOnDeleteListener
             return;
         }
 
-        $memberId = (int) $dataContainer->id;
-
-        $this->connection->transactional(function () use ($memberId): void {
-            $this->voteRepository->deleteByMemberIdOrQuestionAuthor($memberId);
-            $this->questionRepository->deleteByMemberId($memberId);
-        });
+        $this->memberDataEraser->erase((int) $dataContainer->id);
     }
 }

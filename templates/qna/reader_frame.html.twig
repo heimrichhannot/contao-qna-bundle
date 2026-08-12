@@ -1,0 +1,39 @@
+<turbo-frame
+    id="{{ view.frameId }}"
+    class="qna-reader__frame"
+    data-qna-frame="reader"
+    data-qna-state="{{ view.state }}"
+>
+    <p class="qna-reader__status qna-reader__status--{{ view.state }}" role="status" aria-live="polite">
+        {{ view.statusTranslationKey|trans({}, 'contao_default') }}
+    </p>
+
+    {% if view.showQuestionForm %}
+        <form class="qna-question-form" action="{{ question_form_action }}" method="post">
+            <label class="qna-question-form__label" for="qna-session-{{ view.sessionId }}-question">
+                {{ 'qna.question.label'|trans({}, 'contao_default') }}
+            </label>
+            <textarea
+                class="qna-question-form__input"
+                id="qna-session-{{ view.sessionId }}-question"
+                name="question"
+                maxlength="{{ max_question_length }}"
+                required
+            ></textarea>
+            <input type="hidden" name="REQUEST_TOKEN" value="{{ request_token }}">
+            <button class="qna-button qna-question-form__submit" type="submit">
+                {{ 'qna.question.submit'|trans({}, 'contao_default') }}
+            </button>
+        </form>
+    {% endif %}
+
+    {% if view.showQuestions %}
+        {% include '@HeimrichHannotQna/qna/question_list.html.twig' with {
+            questions: questions,
+            frame_id: view.questionsFrameId,
+            show_vote_buttons: view.showVoteButtons,
+            vote_urls: vote_urls,
+            request_token: request_token
+        } only %}
+    {% endif %}
+</turbo-frame>

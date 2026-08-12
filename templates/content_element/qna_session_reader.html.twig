@@ -1,0 +1,25 @@
+{% extends '@Contao/content_element/_base.html.twig' %}
+
+{% block wrapper_tag %}section{% endblock %}
+
+{% block content %}
+    {% if as_editor_view %}
+        <p class="qna-editor-hint">{{ 'qna.reader.editor_hint'|trans({}, 'contao_default') }}</p>
+    {% else %}
+        <div class="qna-reader">
+            <h2 class="qna-reader__title">{{ view.title }}</h2>
+            <turbo-frame
+                id="{{ view.frameId }}"
+                class="qna-reader__frame"
+                loading="lazy"
+                data-qna-frame="reader"
+            >
+                <p class="qna-reader__loading">{{ 'qna.reader.loading'|trans({}, 'contao_default') }}</p>
+            </turbo-frame>
+        </div>
+    {% endif %}
+{% endblock %}
+
+{% block style %}
+    <link rel="stylesheet" href="{{ asset('qna.css', 'heimrich_hannot_qna') }}">
+{% endblock %}

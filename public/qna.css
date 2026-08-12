@@ -1,0 +1,60 @@
+.qna-session-list__items,
+.qna-question-list {
+    display: grid;
+    gap: 1rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.qna-reader__frame,
+.qna-questions {
+    display: block;
+}
+
+.qna-session-list__link,
+.qna-button,
+.qna-question-form__input {
+    border-radius: 0.2rem;
+}
+
+.qna-session-list__link:focus-visible,
+.qna-button:focus-visible,
+.qna-question-form__input:focus-visible {
+    outline: 0.2rem solid currentColor;
+    outline-offset: 0.2rem;
+}
+
+.qna-reader__status {
+    padding: 0.75rem;
+    border-inline-start: 0.25rem solid currentColor;
+    font-weight: 600;
+}
+
+.qna-question-form {
+    display: grid;
+    gap: 0.5rem;
+    margin-block: 1rem;
+}
+
+.qna-question-form__input {
+    min-block-size: 7rem;
+    padding: 0.5rem;
+}
+
+.qna-button {
+    padding: 0.5rem 0.75rem;
+    border: 0.125rem solid currentColor;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+.qna-vote-button--selected {
+    font-weight: 700;
+}
+
+.qna-question {
+    padding-block: 1rem;
+    border-block-end: 0.0625rem solid currentColor;
+}

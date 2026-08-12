@@ -1,0 +1,27 @@
+{% extends '@Contao/content_element/_base.html.twig' %}
+
+{% block wrapper_tag %}section{% endblock %}
+
+{% block content %}
+    <div class="qna-session-list">
+        {% if sessions is empty %}
+            <p class="qna-empty">{{ 'qna.session_list.empty'|trans({}, 'contao_default') }}</p>
+        {% else %}
+            <ul class="qna-session-list__items">
+                {% for session in sessions %}
+                    <li class="qna-session-list__item">
+                        <a
+                            class="qna-session-list__link"
+                            href="{{ session.url }}"
+                            aria-label="{{ 'qna.session_list.open'|trans({'%title%': session.title}, 'contao_default') }}"
+                        >{{ session.title }}</a>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </div>
+{% endblock %}
+
+{% block style %}
+    <link rel="stylesheet" href="{{ asset('qna.css', 'heimrich_hannot_qna') }}">
+{% endblock %}

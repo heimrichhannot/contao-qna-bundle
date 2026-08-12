@@ -31,6 +31,7 @@ $GLOBALS['TL_DCA']['tl_qna_vote'] = [
             'sql' => ['type' => 'integer', 'unsigned' => true, 'default' => 0],
         ],
         'createdAt' => [
+            'eval' => ['rgxp' => 'datim'],
             'sql' => ['type' => 'integer', 'unsigned' => true, 'default' => 0],
         ],
     ],

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Contao\DataContainer;
 use Contao\DC_Table;
 
 $GLOBALS['TL_DCA']['tl_qna_question'] = [
@@ -10,6 +11,10 @@ $GLOBALS['TL_DCA']['tl_qna_question'] = [
         'ptable' => 'tl_qna_session',
         'ctable' => ['tl_qna_vote'],
         'enableVersioning' => true,
+        'notCreatable' => true,
+        'notEditable' => true,
+        'notCopyable' => true,
+        'notSortable' => true,
         'sql' => [
             'keys' => [
                 'id' => 'primary',
@@ -18,6 +23,21 @@ $GLOBALS['TL_DCA']['tl_qna_question'] = [
                 'pid,createdAt' => 'index',
             ],
         ],
+    ],
+    'list' => [
+        'sorting' => [
+            'mode' => DataContainer::MODE_PARENT,
+            'fields' => ['createdAt DESC'],
+            'panelLayout' => 'search,limit',
+            'defaultSearchField' => 'question',
+            'headerFields' => ['title', 'alias', 'published', 'state', 'startedAt', 'endedAt'],
+        ],
+        'label' => [
+            'fields' => ['question'],
+            'format' => '%s',
+        ],
+        'global_operations' => [],
+        'operations' => ['delete', 'show'],
     ],
     'fields' => [
         'id' => [
@@ -33,9 +53,11 @@ $GLOBALS['TL_DCA']['tl_qna_question'] = [
             'sql' => ['type' => 'integer', 'unsigned' => true, 'default' => 0],
         ],
         'question' => [
+            'search' => true,
             'sql' => ['type' => 'text'],
         ],
         'createdAt' => [
+            'eval' => ['rgxp' => 'datim'],
             'sql' => ['type' => 'integer', 'unsigned' => true, 'default' => 0],
         ],
     ],

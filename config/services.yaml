@@ -2,6 +2,9 @@ services:
     _defaults:
         autoconfigure: true
         autowire: true
+        bind:
+            $maxQuestionLength: '%contao_qna.max_question_length%'
+            $questionCooldown: '%contao_qna.question_cooldown%'
 
     HeimrichHannot\QnaBundle\:
         resource: '../src/'
