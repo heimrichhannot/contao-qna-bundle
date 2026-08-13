@@ -15,10 +15,25 @@ final class QnaTurboAssetTest extends TestCase
 
         self::assertStringStartsWith("/*!\nTurbo 8.0.23", $turbo);
         self::assertStringContainsString('if (!window.Turbo)', $polling);
-        self::assertStringContainsString('await import("./turbo.es2017-esm.js")', $polling);
+        self::assertStringContainsString(
+            'await import("./turbo.es2017-esm.js?v=b9d35d123a07")',
+            $polling,
+        );
         self::assertStringContainsString('Turbo.session.drive = false', $polling);
         self::assertStringNotContainsString('import * as Turbo', $polling);
         self::assertStringNotContainsString('2500', $polling);
+    }
+
+    public function testEveryPublicAssetHasACacheBustingManifestEntry(): void
+    {
+        $manifest = json_decode($this->read('public/manifest.json'), true, flags: \JSON_THROW_ON_ERROR);
+        self::assertIsArray($manifest);
+
+        foreach (['qna.css', 'qna.js', 'turbo.es2017-esm.js'] as $asset) {
+            $hash = substr(hash('sha256', $this->read('public/'.$asset)), 0, 12);
+
+            self::assertSame($asset.'?v='.$hash, $manifest[$asset] ?? null);
+        }
     }
 
     public function testPollingImplementsVisibilityBackoffAndCleanup(): void
@@ -38,10 +53,12 @@ final class QnaTurboAssetTest extends TestCase
     public function testEveryPollingTemplateFrameHasASource(): void
     {
         foreach ([
-            'templates/content_element/qna_session_reader.html.twig',
-            'templates/qna/stage_detail.html.twig',
+            'contao/templates/content_element/qna_session_reader.html.twig',
+            'contao/templates/qna/stage_detail.html.twig',
         ] as $path) {
             $template = $this->read($path);
+            self::assertSame(1, substr_count($template, '<turbo-frame'));
+            self::assertSame(1, preg_match_all('/\bdata-qna-poll(?=\s|>)/', $template));
             self::assertMatchesRegularExpression(
                 '/<turbo-frame(?=[^>]*src="{{ frame_src }}")(?=[^>]*data-qna-poll(?:\\s|>))[^>]*>/s',
                 $template,
@@ -52,8 +69,8 @@ final class QnaTurboAssetTest extends TestCase
     public function testFrameResponsesDoNotReferenceTheirOwnSourceUrl(): void
     {
         foreach ([
-            'templates/qna/reader_frame.html.twig',
-            'templates/qna/stage_questions.html.twig',
+            'contao/templates/qna/reader_frame.html.twig',
+            'contao/templates/qna/stage_questions.html.twig',
         ] as $path) {
             $template = $this->read($path);
             self::assertSame(1, preg_match('/<turbo-frame\b[^>]*>/s', $template, $matches));

@@ -46,23 +46,11 @@ class QnaSessionListController extends AbstractContentElementController
 
         $this->tagResponse(['contao.db.tl_qna_session', $page]);
 
-        return $this->render('@HeimrichHannotQna/content_element/qna_session_list.html.twig', [
-            ...$this->templateContext($request),
-            'sessions' => $this->viewFactory->create($this->sessionGateway->findAllPublished(), $page),
-        ]);
-    }
+        $template->set(
+            'sessions',
+            $this->viewFactory->create($this->sessionGateway->findAllPublished(), $page),
+        );
 
-    /**
-     * @return array<string, mixed>
-     */
-    private function templateContext(Request $request): array
-    {
-        return [
-            'type' => 'qna_session_list',
-            'element_html_id' => null,
-            'element_css_classes' => '',
-            'headline' => ['text' => '', 'tag_name' => 'h2'],
-            'as_editor_view' => $this->isBackendScope($request),
-        ];
+        return $template->getResponse();
     }
 }

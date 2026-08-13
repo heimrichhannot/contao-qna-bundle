@@ -47,7 +47,7 @@ final class QnaStageControllerTest extends TestCase
         $twig = $this->createMock(Environment::class);
         $twig->expects(self::once())
             ->method('render')
-            ->with('@HeimrichHannotQna/qna/stage_overview.html.twig', ['sessions' => []])
+            ->with('@Contao/qna/stage_overview.html.twig', ['sessions' => []])
             ->willReturn('<section>Stage</section>');
 
         $layoutTemplate = new LayoutTemplate(
@@ -152,7 +152,7 @@ final class QnaStageControllerTest extends TestCase
         $twig->expects(self::once())
             ->method('render')
             ->with(
-                '@HeimrichHannotQna/qna/stage_detail.html.twig',
+                '@Contao/qna/stage_detail.html.twig',
                 self::callback(static fn (array $context): bool => $session === $context['session']
                     && 'qna-session-7-stage' === $context['frame_id']
                     && '/_qna/stage/7/questions?sort=time' === $context['frame_src']),

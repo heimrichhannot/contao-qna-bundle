@@ -81,7 +81,7 @@ final class QnaActionControllerTest extends TestCase
         $twig->expects(self::once())
             ->method('render')
             ->with(
-                '@HeimrichHannotQna/qna/stage_questions.html.twig',
+                '@Contao/qna/stage_questions.html.twig',
                 self::callback(static fn (array $context): bool => 'qna.error.invalid_transition' === $context['error_translation_key']),
             )
             ->willReturn('<turbo-frame id="qna-session-7-stage"></turbo-frame>');

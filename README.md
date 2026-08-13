@@ -27,11 +27,10 @@ composer require heimrichhannot/contao-qna-bundle
 vendor/bin/contao-console contao:migrate
 ```
 
-The database update can alternatively be run through Contao Manager. Do not
-approve unrelated destructive schema changes merely to install this bundle.
-The package provides its bundle registration, services, DCA, routes,
-translations, Twig templates and public assets itself; no code has to be
-copied into the host project.
+The database update can alternatively be run through Contao Manager. The
+package provides its bundle registration, services, DCA, routes, translations,
+Twig templates and public assets itself; no code has to be copied into the host
+project.
 
 Optional technical limits can be set in the host configuration:
 
@@ -159,21 +158,24 @@ been deliberately reviewed.
 
 ## Operations and capacity
 
-At the default 2.5-second open interval, each visible polling frame produces
-`1 / 2.5 = 0.4` non-cacheable requests per second. Approximate open-session
-load is therefore:
+The reader detail page and the stage detail page each contain one polling frame
+per viewer. At the default 2.5-second open interval, one viewer therefore
+produces `1 frame / 2.5 seconds = 0.4` non-cacheable requests per second.
+Approximate open-session load per viewed detail page is:
 
-| Visible frames | Requests/second |
-| ---: | ---: |
-| 100 | 40 |
-| 500 | 200 |
-| 1,000 | 400 |
+| Concurrent viewers | Polling frames per viewer | Requests/second |
+| ---: | ---: | ---: |
+| 100 | 1 | 40 |
+| 500 | 1 | 200 |
+| 1,000 | 1 | 400 |
 
 Waiting and closed sessions poll every 10 seconds by default, resulting in
-approximately 10, 50 and 100 requests/second for the same audiences. Reader
-and stage frames count separately if both are visible. Form actions add short
-bursts. Deployments must size PHP workers and database capacity for concurrent
-visible frames; this polling design is not a push system.
+approximately 10, 50 and 100 requests/second for the same viewer counts. A
+person who opens both reader and stage detail pages concurrently creates two
+polling frames; for capacity planning, count each concurrently viewed detail
+page once. Form actions add short bursts. Deployments must size PHP workers and
+database capacity for concurrent viewers; this polling design is not a push
+system.
 
 ## Security measures
 
@@ -209,9 +211,9 @@ visible frames; this polling design is not a push system.
   `ContentUrlGenerator::generate($pageModel)` can generate that overview with
   an empty alias. The bundle therefore cannot add a generated back link from
   the stage detail. Navigation supplied by the page layout remains available.
-- Polling scales linearly with visible frames and has no shared cache, push
-  channel or cross-client coalescing. Exponential backoff helps failures, not
-  normal peak load.
+- Polling scales linearly with concurrent viewers (one visible frame per reader
+  or stage detail view) and has no shared cache, push channel or cross-client
+  coalescing. Exponential backoff helps failures, not normal peak load.
 - Member cleanup is guaranteed for Contao's back-end delete and front-end
   account-closing flows. Direct SQL deletion, third-party CLI deletion and
   external privacy tools that bypass Contao callbacks/events are outside this

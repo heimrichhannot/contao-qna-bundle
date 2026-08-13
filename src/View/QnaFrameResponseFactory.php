@@ -52,7 +52,7 @@ final readonly class QnaFrameResponseFactory
             : null;
 
         return $this->createResponse(
-            $this->twig->render('@HeimrichHannotQna/qna/reader_frame.html.twig', [
+            $this->twig->render('@Contao/qna/reader_frame.html.twig', [
                 'view' => $view,
                 'questions' => $questions,
                 'question_form_action' => $this->urlGenerator->generate('contao_qna_question_create', [
@@ -83,7 +83,7 @@ final readonly class QnaFrameResponseFactory
         $routeParameters = ['sessionId' => $session->id, 'sort' => $sort];
 
         return $this->createResponse(
-            $this->twig->render('@HeimrichHannotQna/qna/stage_questions.html.twig', [
+            $this->twig->render('@Contao/qna/stage_questions.html.twig', [
                 'session' => $session,
                 'status_translation_key' => 'qna.stage.status.'.$session->state->value,
                 'questions' => $showQuestions

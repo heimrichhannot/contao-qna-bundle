@@ -4,7 +4,7 @@
     {% else %}
         <ol class="qna-question-list">
             {% for question in questions %}
-                {% include '@HeimrichHannotQna/qna/question.html.twig' with {
+                {% include '@Contao/qna/question.html.twig' with {
                     question: question,
                     show_vote_button: show_vote_buttons,
                     vote_url: vote_urls[question.id]|default(null),

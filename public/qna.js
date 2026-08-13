@@ -1,5 +1,5 @@
 if (!window.Turbo) {
-    const Turbo = await import("./turbo.es2017-esm.js")
+    const Turbo = await import("./turbo.es2017-esm.js?v=b9d35d123a07")
 
     Turbo.session.drive = false
 }

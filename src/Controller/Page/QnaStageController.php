@@ -147,7 +147,7 @@ class QnaStageController extends AbstractPageController
     private function getContent(PageModel $pageModel, array $arguments): string
     {
         if ('' === $arguments['alias']) {
-            return $this->twig->render('@HeimrichHannotQna/qna/stage_overview.html.twig', [
+            return $this->twig->render('@Contao/qna/stage_overview.html.twig', [
                 'sessions' => array_map(
                     fn (QnaSession $session): array => [
                         'id' => $session->id,
@@ -167,7 +167,7 @@ class QnaStageController extends AbstractPageController
             throw new PageNotFoundException();
         }
 
-        return $this->twig->render('@HeimrichHannotQna/qna/stage_detail.html.twig', [
+        return $this->twig->render('@Contao/qna/stage_detail.html.twig', [
             'session' => $session,
             'frame_id' => \sprintf('qna-session-%d-stage', $session->id),
             'frame_src' => $this->urlGenerator->generate('contao_qna_stage_questions', [

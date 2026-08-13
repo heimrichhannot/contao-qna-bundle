@@ -10,7 +10,7 @@ final class QnaTemplateStructureTest extends TestCase
 {
     public function testInitialReaderMarkupIsNeutralAndPreparedAsALazyFrame(): void
     {
-        $template = $this->read('templates/content_element/qna_session_reader.html.twig');
+        $template = $this->read('contao/templates/content_element/qna_session_reader.html.twig');
 
         self::assertStringContainsString('<turbo-frame', $template);
         self::assertStringContainsString('loading="lazy"', $template);
@@ -23,13 +23,13 @@ final class QnaTemplateStructureTest extends TestCase
 
     public function testQuestionPartialsAreSharedAndAccessible(): void
     {
-        $readerFrame = $this->read('templates/qna/reader_frame.html.twig');
-        $questionList = $this->read('templates/qna/question_list.html.twig');
-        $question = $this->read('templates/qna/question.html.twig');
+        $readerFrame = $this->read('contao/templates/qna/reader_frame.html.twig');
+        $questionList = $this->read('contao/templates/qna/question_list.html.twig');
+        $question = $this->read('contao/templates/qna/question.html.twig');
         $styles = $this->read('public/qna.css');
 
-        self::assertStringContainsString('@HeimrichHannotQna/qna/question_list.html.twig', $readerFrame);
-        self::assertStringContainsString('@HeimrichHannotQna/qna/question.html.twig', $questionList);
+        self::assertStringContainsString('@Contao/qna/question_list.html.twig', $readerFrame);
+        self::assertStringContainsString('@Contao/qna/question.html.twig', $questionList);
         self::assertStringContainsString('class="qna-questions"', $questionList);
         self::assertStringContainsString('id="{{ frame_id }}"', $questionList);
         self::assertStringNotContainsString('<turbo-frame', $questionList);
@@ -60,11 +60,11 @@ final class QnaTemplateStructureTest extends TestCase
 
         self::assertStringContainsString(
             "trans([session.title], 'contao_default')",
-            $this->read('templates/content_element/qna_session_list.html.twig'),
+            $this->read('contao/templates/content_element/qna_session_list.html.twig'),
         );
         self::assertStringContainsString(
             "trans([question.voteCount], 'contao_default')",
-            $this->read('templates/qna/question.html.twig'),
+            $this->read('contao/templates/qna/question.html.twig'),
         );
     }
 

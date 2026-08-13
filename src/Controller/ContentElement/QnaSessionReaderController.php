@@ -33,24 +33,22 @@ class QnaSessionReaderController extends AbstractContentElementController
     protected function getResponse(FragmentTemplate $template, ContentModel $model, Request $request): Response
     {
         if ($this->isBackendScope($request)) {
-            return $this->render('@HeimrichHannotQna/content_element/qna_session_reader.html.twig', [
-                ...$this->templateContext($request),
-                'view' => null,
-            ]);
+            $template->set('view', null);
+
+            return $template->getResponse();
         }
 
         $session = $this->resolveSession();
         $this->tagResponse('contao.db.tl_qna_session.'.$session->id);
 
-        return $this->render('@HeimrichHannotQna/content_element/qna_session_reader.html.twig', [
-            ...$this->templateContext($request),
-            'view' => $this->viewFactory->createInitial($session),
-            'frame_src' => $this->urlGenerator->generate('contao_qna_reader_frame', [
-                'sessionId' => $session->id,
-            ]),
-            'polling_interval' => $this->pollingInterval,
-            'polling_max_interval' => $this->pollingInterval * 16,
-        ]);
+        $template->set('view', $this->viewFactory->createInitial($session));
+        $template->set('frame_src', $this->urlGenerator->generate('contao_qna_reader_frame', [
+            'sessionId' => $session->id,
+        ]));
+        $template->set('polling_interval', $this->pollingInterval);
+        $template->set('polling_max_interval', $this->pollingInterval * 16);
+
+        return $template->getResponse();
     }
 
     protected function resolveSession(): QnaSession
@@ -72,19 +70,5 @@ class QnaSessionReaderController extends AbstractContentElementController
         }
 
         return $session;
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function templateContext(Request $request): array
-    {
-        return [
-            'type' => 'qna_session_reader',
-            'element_html_id' => null,
-            'element_css_classes' => '',
-            'headline' => ['text' => '', 'tag_name' => 'h2'],
-            'as_editor_view' => $this->isBackendScope($request),
-        ];
     }
 }

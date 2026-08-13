@@ -35,7 +35,7 @@
     {% endif %}
 
     {% if view.showQuestions %}
-        {% include '@HeimrichHannotQna/qna/question_list.html.twig' with {
+        {% include '@Contao/qna/question_list.html.twig' with {
             questions: questions,
             frame_id: view.questionsFrameId,
             show_vote_buttons: view.showVoteButtons,

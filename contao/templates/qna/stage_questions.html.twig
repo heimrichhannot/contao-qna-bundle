@@ -37,7 +37,7 @@
                 </a>
             </nav>
 
-            {% include '@HeimrichHannotQna/qna/question_list.html.twig' with {
+            {% include '@Contao/qna/question_list.html.twig' with {
                 questions: questions,
                 frame_id: 'qna-session-' ~ session.id ~ '-stage-questions',
                 show_vote_buttons: false,
