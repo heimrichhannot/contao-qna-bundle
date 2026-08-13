@@ -28,10 +28,15 @@ final readonly class VoteService
     ) {
     }
 
-    public function vote(int $questionId): QnaVoteState
+    public function vote(int $questionId, ?int $expectedSessionId = null): QnaVoteState
     {
         $question = $this->questionGateway->find($questionId)
             ?? throw new QuestionNotFoundException($questionId);
+
+        if (null !== $expectedSessionId && $question->sessionId !== $expectedSessionId) {
+            throw new QuestionNotFoundException($questionId);
+        }
+
         $this->requireOpenSession($question->sessionId);
         $memberId = $this->memberProvider->getId();
 

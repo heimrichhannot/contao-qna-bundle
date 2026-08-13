@@ -20,7 +20,7 @@ final class QnaReaderViewFactory
         );
     }
 
-    public function createDynamic(QnaSession $session): QnaReaderView
+    public function createDynamic(QnaSession $session, bool $canInteract = true): QnaReaderView
     {
         return match ($session->state) {
             SessionState::WAITING => new QnaReaderView(
@@ -39,9 +39,9 @@ final class QnaReaderViewFactory
                 $this->questionsFrameId($session->id),
                 $session->state->value,
                 'qna.reader.status.open',
+                $canInteract,
                 true,
-                true,
-                true,
+                $canInteract,
             ),
             SessionState::CLOSED => new QnaReaderView(
                 $session->id,

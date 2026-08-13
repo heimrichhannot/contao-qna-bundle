@@ -23,5 +23,7 @@
 {% endblock %}
 
 {% block style %}
-    <link rel="stylesheet" href="{{ asset('qna.css', 'heimrich_hannot_qna') }}">
+    {% add 'qna_styles' to stylesheets %}
+        <link rel="stylesheet" href="{{ asset('qna.css', 'heimrich_hannot_qna') }}">
+    {% endadd %}
 {% endblock %}

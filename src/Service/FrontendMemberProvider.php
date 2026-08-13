@@ -16,10 +16,19 @@ final readonly class FrontendMemberProvider
 
     public function getId(): int
     {
+        if (null === ($memberId = $this->getIdOrNull())) {
+            throw new AuthenticationRequiredException();
+        }
+
+        return $memberId;
+    }
+
+    public function getIdOrNull(): ?int
+    {
         $user = $this->security->getUser();
 
         if (!$user instanceof FrontendUser || 1 > ($memberId = (int) $user->id)) {
-            throw new AuthenticationRequiredException();
+            return null;
         }
 
         return $memberId;

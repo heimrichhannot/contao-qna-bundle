@@ -1,4 +1,4 @@
-<turbo-frame id="{{ frame_id }}" class="qna-questions" data-qna-frame="questions">
+<div id="{{ frame_id }}" class="qna-questions">
     {% if questions is empty %}
         <p class="qna-empty">{{ 'qna.questions.empty'|trans({}, 'contao_default') }}</p>
     {% else %}
@@ -13,4 +13,4 @@
             {% endfor %}
         </ol>
     {% endif %}
-</turbo-frame>
+</div>

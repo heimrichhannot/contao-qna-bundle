@@ -1,0 +1,24 @@
+<section class="qna-stage qna-stage--detail">
+    <h1>{{ session.title }}</h1>
+
+    <turbo-frame
+        id="{{ frame_id }}"
+        class="qna-stage__frame"
+        src="{{ frame_src }}"
+        loading="lazy"
+        data-qna-frame="stage"
+        data-qna-poll
+        data-qna-poll-interval="{{ polling_interval }}"
+        data-qna-poll-max-interval="{{ polling_max_interval }}"
+    >
+        <p class="qna-stage__loading">{{ 'qna.stage.loading'|trans({}, 'contao_default') }}</p>
+    </turbo-frame>
+</section>
+
+{% add 'qna_styles' to stylesheets %}
+    <link rel="stylesheet" href="{{ asset('qna.css', 'heimrich_hannot_qna') }}">
+{% endadd %}
+
+{% add 'qna_frontend' to body %}
+    <script type="module" src="{{ asset('qna.js', 'heimrich_hannot_qna') }}"></script>
+{% endadd %}

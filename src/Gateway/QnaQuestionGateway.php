@@ -43,6 +43,38 @@ class QnaQuestionGateway
         ORDER BY q.createdAt ASC
         SQL;
 
+    private const string STAGE_LIST_BY_VOTES_SQL = <<<'SQL'
+        SELECT
+            q.id,
+            q.pid,
+            q.memberId,
+            q.question,
+            q.createdAt,
+            COUNT(v.id) AS voteCount,
+            0 AS hasVoted
+        FROM tl_qna_question q
+        LEFT JOIN tl_qna_vote v ON v.pid = q.id
+        WHERE q.pid = :sessionId
+        GROUP BY q.id, q.pid, q.memberId, q.question, q.createdAt
+        ORDER BY voteCount DESC, q.createdAt ASC
+        SQL;
+
+    private const string STAGE_LIST_BY_TIME_SQL = <<<'SQL'
+        SELECT
+            q.id,
+            q.pid,
+            q.memberId,
+            q.question,
+            q.createdAt,
+            COUNT(v.id) AS voteCount,
+            0 AS hasVoted
+        FROM tl_qna_question q
+        LEFT JOIN tl_qna_vote v ON v.pid = q.id
+        WHERE q.pid = :sessionId
+        GROUP BY q.id, q.pid, q.memberId, q.question, q.createdAt
+        ORDER BY q.createdAt ASC
+        SQL;
+
     public function __construct(private readonly Connection $connection)
     {
     }
@@ -126,18 +158,24 @@ class QnaQuestionGateway
             ['sessionId' => ParameterType::INTEGER, 'memberId' => ParameterType::INTEGER],
         );
 
-        return array_map(
-            fn (array $row): QnaQuestionListItem => new QnaQuestionListItem(
-                $this->intValue($row['id'] ?? null, 'id'),
-                $this->intValue($row['pid'] ?? null, 'pid'),
-                $this->intValue($row['memberId'] ?? null, 'memberId'),
-                $this->stringValue($row['question'] ?? null, 'question'),
-                $this->intValue($row['createdAt'] ?? null, 'createdAt'),
-                $this->intValue($row['voteCount'] ?? null, 'voteCount'),
-                $this->boolValue($row['hasVoted'] ?? null, 'hasVoted'),
-            ),
-            $rows,
+        return array_map($this->hydrateListItem(...), $rows);
+    }
+
+    /**
+     * Loads the stage question list without member-specific vote state.
+     *
+     * @return list<QnaQuestionListItem>
+     */
+    public function findForStage(int $sessionId, string $sort = 'votes'): array
+    {
+        $sql = 'time' === $sort ? self::STAGE_LIST_BY_TIME_SQL : self::STAGE_LIST_BY_VOTES_SQL;
+        $rows = $this->connection->fetchAllAssociative(
+            $sql,
+            ['sessionId' => $sessionId],
+            ['sessionId' => ParameterType::INTEGER],
         );
+
+        return array_map($this->hydrateListItem(...), $rows);
     }
 
     public function deleteByMemberId(int $memberId): void
@@ -174,5 +212,21 @@ class QnaQuestionGateway
         }
 
         return (bool) $value;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private function hydrateListItem(array $row): QnaQuestionListItem
+    {
+        return new QnaQuestionListItem(
+            $this->intValue($row['id'] ?? null, 'id'),
+            $this->intValue($row['pid'] ?? null, 'pid'),
+            $this->intValue($row['memberId'] ?? null, 'memberId'),
+            $this->stringValue($row['question'] ?? null, 'question'),
+            $this->intValue($row['createdAt'] ?? null, 'createdAt'),
+            $this->intValue($row['voteCount'] ?? null, 'voteCount'),
+            $this->boolValue($row['hasVoted'] ?? null, 'hasVoted'),
+        );
     }
 }

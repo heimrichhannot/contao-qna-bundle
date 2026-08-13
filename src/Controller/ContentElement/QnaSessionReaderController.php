@@ -16,6 +16,7 @@ use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
 use HeimrichHannot\QnaBundle\View\QnaReaderViewFactory;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 #[AsContentElement(type: 'qna_session_reader', category: 'qna')]
 class QnaSessionReaderController extends AbstractContentElementController
@@ -24,6 +25,8 @@ class QnaSessionReaderController extends AbstractContentElementController
         private readonly ContaoFramework $framework,
         private readonly QnaSessionGateway $sessionGateway,
         private readonly QnaReaderViewFactory $viewFactory,
+        private readonly UrlGeneratorInterface $urlGenerator,
+        private readonly int $pollingInterval,
     ) {
     }
 
@@ -42,6 +45,11 @@ class QnaSessionReaderController extends AbstractContentElementController
         return $this->render('@HeimrichHannotQna/content_element/qna_session_reader.html.twig', [
             ...$this->templateContext($request),
             'view' => $this->viewFactory->createInitial($session),
+            'frame_src' => $this->urlGenerator->generate('contao_qna_reader_frame', [
+                'sessionId' => $session->id,
+            ]),
+            'polling_interval' => $this->pollingInterval,
+            'polling_max_interval' => $this->pollingInterval * 16,
         ]);
     }
 

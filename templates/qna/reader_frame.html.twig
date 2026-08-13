@@ -4,6 +4,13 @@
     data-qna-frame="reader"
     data-qna-state="{{ view.state }}"
 >
+    <div data-qna-poll-interval="{{ polling_interval }}">
+    {% if error_translation_key %}
+        <p class="qna-message qna-message--error" role="alert">
+            {{ error_translation_key|trans({}, 'contao_default') }}
+        </p>
+    {% endif %}
+
     <p class="qna-reader__status qna-reader__status--{{ view.state }}" role="status" aria-live="polite">
         {{ view.statusTranslationKey|trans({}, 'contao_default') }}
     </p>
@@ -36,4 +43,5 @@
             request_token: request_token
         } only %}
     {% endif %}
+    </div>
 </turbo-frame>

@@ -1,0 +1,22 @@
+<section class="qna-stage qna-stage--overview">
+    <h1>{{ 'qna.stage.overview.title'|trans({}, 'contao_default') }}</h1>
+
+    {% if sessions is empty %}
+        <p class="qna-empty">{{ 'qna.session_list.empty'|trans({}, 'contao_default') }}</p>
+    {% else %}
+        <ul class="qna-session-list__items">
+            {% for session in sessions %}
+                <li class="qna-session-list__item">
+                    <a class="qna-session-list__link" href="{{ session.url }}">{{ session.title }}</a>
+                    <span class="qna-session-list__status qna-session-list__status--{{ session.state }}">
+                        {{ session.status_translation_key|trans({}, 'contao_default') }}
+                    </span>
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+</section>
+
+{% add 'qna_styles' to stylesheets %}
+    <link rel="stylesheet" href="{{ asset('qna.css', 'heimrich_hannot_qna') }}">
+{% endadd %}

@@ -11,8 +11,12 @@
             <turbo-frame
                 id="{{ view.frameId }}"
                 class="qna-reader__frame"
+                src="{{ frame_src }}"
                 loading="lazy"
                 data-qna-frame="reader"
+                data-qna-poll
+                data-qna-poll-interval="{{ polling_interval }}"
+                data-qna-poll-max-interval="{{ polling_max_interval }}"
             >
                 <p class="qna-reader__loading">{{ 'qna.reader.loading'|trans({}, 'contao_default') }}</p>
             </turbo-frame>
@@ -21,5 +25,15 @@
 {% endblock %}
 
 {% block style %}
-    <link rel="stylesheet" href="{{ asset('qna.css', 'heimrich_hannot_qna') }}">
+    {% add 'qna_styles' to stylesheets %}
+        <link rel="stylesheet" href="{{ asset('qna.css', 'heimrich_hannot_qna') }}">
+    {% endadd %}
+{% endblock %}
+
+{% block script %}
+    {% if not as_editor_view %}
+        {% add 'qna_frontend' to body %}
+            <script type="module" src="{{ asset('qna.js', 'heimrich_hannot_qna') }}"></script>
+        {% endadd %}
+    {% endif %}
 {% endblock %}
