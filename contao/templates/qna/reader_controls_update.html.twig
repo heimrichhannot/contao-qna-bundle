@@ -1,0 +1,12 @@
+<turbo-stream
+    action="replace"
+    {% if reset_question_form %}
+        target="{{ view.controlsContentId }}"
+    {% else %}
+        targets="#{{ view.controlsContentId }}:not([data-qna-state='{{ view.state }}'])"
+    {% endif %}
+>
+    <template>
+        {% include '@Contao/qna/reader_controls.html.twig' %}
+    </template>
+</turbo-stream>

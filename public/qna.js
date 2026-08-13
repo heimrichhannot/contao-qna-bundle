@@ -1,5 +1,7 @@
-if (!window.Turbo) {
-    const Turbo = await import("./turbo.es2017-esm.js?v=b9d35d123a07")
+let Turbo = window.Turbo
+
+if (!Turbo) {
+    Turbo = await import("./turbo.es2017-esm.js?v=b9d35d123a07")
 
     Turbo.session.drive = false
 }
@@ -20,6 +22,12 @@ function clearTimer(state) {
         window.clearTimeout(state.timer)
         state.timer = null
     }
+}
+
+function frameIsInteracting(frame) {
+    return frame.matches(":focus-within")
+        || frame.hasAttribute("busy")
+        || frame.querySelector("[aria-busy='true']") !== null
 }
 
 function removeFrame(frame) {
@@ -61,6 +69,11 @@ function reload(frame) {
     }
 
     clearTimer(state)
+
+    if (frameIsInteracting(frame)) {
+        schedule(frame)
+        return
+    }
 
     try {
         Promise.resolve(frame.reload()).catch(() => markFailure(frame))
@@ -104,6 +117,18 @@ document.addEventListener("turbo:frame-load", (event) => {
     if (state) {
         state.failures = 0
         schedule(frame)
+    }
+})
+
+document.addEventListener("turbo:before-frame-render", (event) => {
+    const frame = event.target
+
+    if (
+        frame instanceof Element
+        && frame.matches('turbo-frame[data-qna-poll][refresh="morph"]')
+        && typeof Turbo.morphTurboFrameElements === "function"
+    ) {
+        event.detail.render = Turbo.morphTurboFrameElements
     }
 })
 

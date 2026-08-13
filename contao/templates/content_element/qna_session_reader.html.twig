@@ -11,9 +11,19 @@
             <turbo-frame
                 id="{{ view.frameId }}"
                 class="qna-reader__frame"
-                src="{{ frame_src }}"
+                src="{{ controls_frame_src }}"
                 loading="lazy"
-                data-qna-frame="reader"
+                data-qna-frame="reader-controls"
+            >
+                <p class="qna-reader__loading">{{ 'qna.reader.loading'|trans({}, 'contao_default') }}</p>
+            </turbo-frame>
+            <turbo-frame
+                id="{{ view.questionsFrameId }}"
+                class="qna-reader__questions-frame"
+                src="{{ questions_frame_src }}"
+                loading="lazy"
+                refresh="morph"
+                data-qna-frame="reader-questions"
                 data-qna-poll
                 data-qna-poll-interval="{{ polling_interval }}"
                 data-qna-poll-max-interval="{{ polling_max_interval }}"

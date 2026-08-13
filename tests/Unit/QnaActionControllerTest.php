@@ -178,6 +178,47 @@ final class QnaActionControllerTest extends TestCase
         self::assertSame('text/html; charset=UTF-8', $response->headers->get('Content-Type'));
     }
 
+    public function testCreatedQuestionRedirectsToAListUpdateThatResetsTheForm(): void
+    {
+        $session = new QnaSession(7, 'Mobility', 'mobility', true, SessionState::OPEN, 100, null);
+        $gateway = $this->createStub(QnaSessionGateway::class);
+        $gateway->method('find')->willReturn($session);
+        $questionGateway = $this->createMock(QnaQuestionGateway::class);
+        $questionGateway->expects(self::once())->method('findLatestCreatedAt')->with(7, 42)->willReturn(null);
+        $questionGateway->expects(self::once())
+            ->method('create')
+            ->with(7, 42, 'Question', 150)
+            ->willReturn(23);
+        $memberSecurity = $this->createMemberSecurity(42);
+        $questionService = new QuestionService(
+            $gateway,
+            $questionGateway,
+            new FrontendMemberProvider($memberSecurity),
+            new MockClock('@150'),
+            500,
+            20,
+        );
+        $urlGenerator = $this->createMock(UrlGeneratorInterface::class);
+        $urlGenerator->expects(self::once())
+            ->method('generate')
+            ->with('contao_qna_reader_frame', ['sessionId' => 7, 'resetQuestionForm' => 1])
+            ->willReturn('/_qna/reader/7?resetQuestionForm=1');
+        $controller = new QnaActionController(
+            $questionService,
+            $this->uninitializedVoteService(),
+            new SessionService($gateway, new MockClock('@150')),
+            $gateway,
+            $this->uninitializedResponseFactory(),
+            $this->createStub(Security::class),
+            $urlGenerator,
+        );
+
+        $response = $controller->question(7, Request::create('/question', 'POST', ['question' => 'Question']));
+
+        self::assertSame(303, $response->getStatusCode());
+        self::assertSame('/_qna/reader/7?resetQuestionForm=1', $response->headers->get('Location'));
+    }
+
     public function testRejectedQuestionReturnsUnprocessableReaderFrame(): void
     {
         $session = new QnaSession(7, 'Mobility', 'mobility', true, SessionState::OPEN, 100, null);

@@ -12,9 +12,10 @@ final class QnaTemplateStructureTest extends TestCase
     {
         $template = $this->read('contao/templates/content_element/qna_session_reader.html.twig');
 
-        self::assertStringContainsString('<turbo-frame', $template);
+        self::assertSame(2, substr_count($template, '<turbo-frame'));
         self::assertStringContainsString('loading="lazy"', $template);
         self::assertStringContainsString('view.frameId', $template);
+        self::assertStringContainsString('view.questionsFrameId', $template);
         self::assertStringNotContainsString('REQUEST_TOKEN', $template);
         self::assertStringNotContainsString('request_token', $template);
         self::assertStringNotContainsString('hasVoted', $template);
@@ -23,12 +24,12 @@ final class QnaTemplateStructureTest extends TestCase
 
     public function testQuestionPartialsAreSharedAndAccessible(): void
     {
-        $readerFrame = $this->read('contao/templates/qna/reader_frame.html.twig');
+        $readerQuestions = $this->read('contao/templates/qna/reader_questions.html.twig');
         $questionList = $this->read('contao/templates/qna/question_list.html.twig');
         $question = $this->read('contao/templates/qna/question.html.twig');
         $styles = $this->read('public/qna.css');
 
-        self::assertStringContainsString('@Contao/qna/question_list.html.twig', $readerFrame);
+        self::assertStringContainsString('@Contao/qna/question_list.html.twig', $readerQuestions);
         self::assertStringContainsString('@Contao/qna/question.html.twig', $questionList);
         self::assertStringContainsString('class="qna-questions"', $questionList);
         self::assertStringContainsString('id="{{ frame_id }}"', $questionList);
@@ -38,6 +39,44 @@ final class QnaTemplateStructureTest extends TestCase
         self::assertStringContainsString('aria-pressed=', $question);
         self::assertStringContainsString('qna-vote-button--selected', $question);
         self::assertStringContainsString(':focus-visible', $styles);
+    }
+
+    public function testQuestionFormAndPollingListUseSeparateFrames(): void
+    {
+        $shell = $this->read('contao/templates/content_element/qna_session_reader.html.twig');
+        $controls = $this->read('contao/templates/qna/reader_controls.html.twig');
+        $questions = $this->read('contao/templates/qna/reader_questions_frame.html.twig');
+        $controlsUpdate = $this->read('contao/templates/qna/reader_controls_update.html.twig');
+
+        self::assertMatchesRegularExpression(
+            '/<turbo-frame(?=[^>]*id="{{ view.frameId }}")(?=[^>]*src="{{ controls_frame_src }}")[^>]*>/s',
+            $shell,
+        );
+        self::assertMatchesRegularExpression(
+            '/<turbo-frame(?=[^>]*id="{{ view.questionsFrameId }}")(?=[^>]*src="{{ questions_frame_src }}")(?=[^>]*data-qna-poll(?:\\s|>))[^>]*>/s',
+            $shell,
+        );
+        self::assertSame(
+            1,
+            preg_match('/<turbo-frame(?=[^>]*id="{{ view.frameId }}")[^>]*>/s', $shell, $controlsFrame),
+        );
+        $controlsOpeningTag = $controlsFrame[0] ?? null;
+        self::assertIsString($controlsOpeningTag);
+        self::assertStringNotContainsString('data-qna-poll', $controlsOpeningTag);
+        self::assertStringContainsString('class="qna-question-form"', $controls);
+        self::assertStringContainsString('data-turbo-frame="{{ view.questionsFrameId }}"', $controls);
+        self::assertStringNotContainsString('qna-question-form', $questions);
+        self::assertStringContainsString("data-qna-state='{{ view.state }}'", $controlsUpdate);
+        self::assertStringContainsString('reset_question_form', $controlsUpdate);
+    }
+
+    public function testStageSortLinksKeepStableIdsAndUseFrameNavigation(): void
+    {
+        $stage = $this->read('contao/templates/qna/stage_content.html.twig');
+
+        self::assertStringContainsString('id="qna-session-{{ session.id }}-sort-votes"', $stage);
+        self::assertStringContainsString('id="qna-session-{{ session.id }}-sort-time"', $stage);
+        self::assertStringNotContainsString('data-turbo-stream', $stage);
     }
 
     public function testParameterizedContaoTranslationsUsePositionalPlaceholders(): void

@@ -18,6 +18,7 @@ final class QnaHttpRouteTest extends TestCase
     public static function routeProvider(): iterable
     {
         yield 'reader frame' => [QnaFrameController::class, 'reader', 'contao_qna_reader_frame', false];
+        yield 'reader controls' => [QnaFrameController::class, 'readerControls', 'contao_qna_reader_controls', false];
         yield 'stage frame' => [QnaFrameController::class, 'stage', 'contao_qna_stage_questions', false];
         yield 'question' => [QnaActionController::class, 'question', 'contao_qna_question_create', true];
         yield 'vote' => [QnaActionController::class, 'vote', 'contao_qna_vote_create', true];

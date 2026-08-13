@@ -21,9 +21,27 @@ final readonly class QnaFrameController
         requirements: ['sessionId' => '\\d+'],
         methods: ['GET'],
     )]
-    public function reader(int $sessionId): Response
+    public function reader(int $sessionId, Request $request): Response
     {
-        return $this->responseFactory->renderReader($sessionId);
+        if ($this->acceptsTurboStream($request)) {
+            return $this->responseFactory->renderReaderUpdate(
+                $sessionId,
+                $request->query->getBoolean('resetQuestionForm'),
+            );
+        }
+
+        return $this->responseFactory->renderReaderQuestions($sessionId);
+    }
+
+    #[Route(
+        '/_qna/reader/{sessionId}/controls',
+        name: 'contao_qna_reader_controls',
+        requirements: ['sessionId' => '\\d+'],
+        methods: ['GET'],
+    )]
+    public function readerControls(int $sessionId): Response
+    {
+        return $this->responseFactory->renderReaderControls($sessionId);
     }
 
     #[Route(
@@ -34,9 +52,18 @@ final readonly class QnaFrameController
     )]
     public function stage(int $sessionId, Request $request): Response
     {
-        return $this->responseFactory->renderStage(
-            $sessionId,
-            $request->query->getString('sort', 'votes'),
+        $sort = $request->query->getString('sort', 'votes');
+
+        return $this->acceptsTurboStream($request)
+            ? $this->responseFactory->renderStageUpdate($sessionId, $sort)
+            : $this->responseFactory->renderStage($sessionId, $sort);
+    }
+
+    private function acceptsTurboStream(Request $request): bool
+    {
+        return str_contains(
+            $request->headers->get('Accept', ''),
+            QnaFrameResponseFactory::TURBO_STREAM_CONTENT_TYPE,
         );
     }
 }

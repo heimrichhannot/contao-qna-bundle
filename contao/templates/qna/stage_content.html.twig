@@ -1,0 +1,59 @@
+<div data-qna-poll-interval="{{ polling_interval }}" data-qna-state="{{ session.state.value }}">
+    {% if error_translation_key %}
+        <p class="qna-message qna-message--error" role="alert">
+            {{ error_translation_key|trans({}, 'contao_default') }}
+        </p>
+    {% endif %}
+
+    <p
+        id="qna-session-{{ session.id }}-stage-status"
+        class="qna-stage__status qna-stage__status--{{ session.state.value }}"
+        role="status"
+        aria-live="polite"
+    >
+        {{ status_translation_key|trans({}, 'contao_default') }}
+    </p>
+
+    {% if show_start_button %}
+        <form class="qna-stage__action" action="{{ start_url }}" method="post">
+            <input type="hidden" name="REQUEST_TOKEN" value="{{ request_token }}">
+            <button id="qna-session-{{ session.id }}-start" class="qna-button" type="submit">
+                {{ 'qna.stage.start'|trans({}, 'contao_default') }}
+            </button>
+        </form>
+    {% elseif show_stop_button %}
+        <form class="qna-stage__action" action="{{ stop_url }}" method="post">
+            <input type="hidden" name="REQUEST_TOKEN" value="{{ request_token }}">
+            <button id="qna-session-{{ session.id }}-stop" class="qna-button" type="submit">
+                {{ 'qna.stage.stop'|trans({}, 'contao_default') }}
+            </button>
+        </form>
+    {% endif %}
+
+    {% if show_questions %}
+        <nav class="qna-stage__sorting" aria-label="{{ 'qna.stage.sort.label'|trans({}, 'contao_default') }}">
+            <a
+                id="qna-session-{{ session.id }}-sort-votes"
+                href="{{ sort_votes_url }}"
+                {% if sort == 'votes' %}aria-current="true"{% endif %}
+            >
+                {{ 'qna.stage.sort.votes'|trans({}, 'contao_default') }}
+            </a>
+            <a
+                id="qna-session-{{ session.id }}-sort-time"
+                href="{{ sort_time_url }}"
+                {% if sort == 'time' %}aria-current="true"{% endif %}
+            >
+                {{ 'qna.stage.sort.time'|trans({}, 'contao_default') }}
+            </a>
+        </nav>
+
+        {% include '@Contao/qna/question_list.html.twig' with {
+            questions: questions,
+            frame_id: 'qna-session-' ~ session.id ~ '-stage-questions',
+            show_vote_buttons: false,
+            vote_urls: {},
+            request_token: null
+        } only %}
+    {% endif %}
+</div>

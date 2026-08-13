@@ -10,6 +10,7 @@ final readonly class QnaReaderView
         public int $sessionId,
         public string $frameId,
         public string $questionsFrameId,
+        public string $controlsContentId,
         public string $state,
         public string $statusTranslationKey,
         public bool $showQuestionForm,

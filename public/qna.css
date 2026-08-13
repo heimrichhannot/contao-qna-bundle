@@ -8,6 +8,7 @@
 }
 
 .qna-reader__frame,
+.qna-reader__questions-frame,
 .qna-questions,
 .qna-stage__frame {
     display: block;

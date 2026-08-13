@@ -10,6 +10,7 @@ final readonly class QnaReaderInitialView
         public int $sessionId,
         public string $title,
         public string $frameId,
+        public string $questionsFrameId,
     ) {
     }
 }

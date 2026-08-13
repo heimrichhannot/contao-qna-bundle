@@ -48,7 +48,12 @@ final class QnaReaderViewFactoryTest extends TestCase
         $view = (new QnaReaderViewFactory())->createInitial($session);
 
         self::assertSame(
-            ['sessionId' => 42, 'title' => 'Future', 'frameId' => 'qna-session-42-reader'],
+            [
+                'sessionId' => 42,
+                'title' => 'Future',
+                'frameId' => 'qna-session-42-reader',
+                'questionsFrameId' => 'qna-session-42-questions',
+            ],
             get_object_vars($view),
         );
     }

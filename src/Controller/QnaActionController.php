@@ -50,43 +50,53 @@ final readonly class QnaActionController
     )]
     public function question(int $sessionId, Request $request): Response
     {
+        $question = $request->request->getString('question');
+
         try {
-            $this->questionService->create($sessionId, $request->request->getString('question'));
+            $this->questionService->create($sessionId, $question);
         } catch (AuthenticationRequiredException) {
-            return $this->responseFactory->renderReader(
+            return $this->responseFactory->renderReaderControls(
                 $sessionId,
                 'qna.error.authentication_required',
                 Response::HTTP_UNAUTHORIZED,
+                $question,
             );
         } catch (EmptyQuestionException) {
-            return $this->responseFactory->renderReader(
+            return $this->responseFactory->renderReaderControls(
                 $sessionId,
                 'qna.error.empty_question',
                 Response::HTTP_UNPROCESSABLE_ENTITY,
+                $question,
             );
         } catch (QuestionTooLongException) {
-            return $this->responseFactory->renderReader(
+            return $this->responseFactory->renderReaderControls(
                 $sessionId,
                 'qna.error.question_too_long',
                 Response::HTTP_UNPROCESSABLE_ENTITY,
+                $question,
             );
         } catch (QuestionCooldownException) {
-            return $this->responseFactory->renderReader(
+            return $this->responseFactory->renderReaderControls(
                 $sessionId,
                 'qna.error.question_cooldown',
                 Response::HTTP_UNPROCESSABLE_ENTITY,
+                $question,
             );
         } catch (SessionNotOpenException) {
-            return $this->responseFactory->renderReader(
+            return $this->responseFactory->renderReaderControls(
                 $sessionId,
                 'qna.error.session_not_open',
                 Response::HTTP_UNPROCESSABLE_ENTITY,
+                $question,
             );
         } catch (SessionNotFoundException|SessionNotPublishedException) {
             throw new PageNotFoundException();
         }
 
-        return $this->redirectToRoute('contao_qna_reader_frame', ['sessionId' => $sessionId]);
+        return $this->redirectToRoute('contao_qna_reader_frame', [
+            'sessionId' => $sessionId,
+            'resetQuestionForm' => 1,
+        ]);
     }
 
     #[Route(
@@ -101,13 +111,13 @@ final readonly class QnaActionController
         try {
             $this->voteService->vote($questionId, $sessionId);
         } catch (AuthenticationRequiredException) {
-            return $this->responseFactory->renderReader(
+            return $this->responseFactory->renderReaderQuestions(
                 $sessionId,
                 'qna.error.authentication_required',
                 Response::HTTP_UNAUTHORIZED,
             );
         } catch (SessionNotOpenException) {
-            return $this->responseFactory->renderReader(
+            return $this->responseFactory->renderReaderQuestions(
                 $sessionId,
                 'qna.error.session_not_open',
                 Response::HTTP_UNPROCESSABLE_ENTITY,

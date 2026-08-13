@@ -354,6 +354,25 @@ Vote-Button, Kennzeichnung bereits abgegebener Votes.
 **`closed`** — Fragen und Vote-Zahlen bleiben sichtbar, Formular und
 Vote-Buttons entfallen, Hinweis auf das Ende der Fragerunde.
 
+Der Reader trennt den member-spezifischen dynamischen Inhalt strukturell in
+zwei benachbarte Turbo-Frames:
+
+* `qna-session-<id>-reader` enthält ausschließlich Status, Fehlermeldungen und
+  — nur bei `open` und für authentifizierte Mitglieder — das Frageformular.
+  Dieser Controls-Frame wird lazy geladen, aber nicht periodisch gepollt.
+* `qna-session-<id>-questions` enthält ausschließlich die Fragenliste samt
+  Vote-Zahlen und statusabhängigen Vote-Buttons. Nur dieser Frame wird im
+  konfigurierten Intervall gepollt.
+
+Jede Listenantwort enthält zusätzlich ein deklaratives Turbo-Stream-Update für
+den Controls-Inhalt, dessen CSS-Ziel nur bei einem abweichenden Session-Status
+existiert. Normales Polling im unveränderten Zustand `open` ersetzt das
+Formular daher nie; ein Wechsel nach `waiting` oder `closed` entfernt es aber
+spätestens mit dem nächsten Listen-Poll. Beim erfolgreichen Absenden wird der
+Controls-Inhalt einmalig gezielt ersetzt, damit das Formular geleert wird.
+Eine 422-Antwort rendert dagegen den Controls-Frame mit Fehlermeldung und dem
+serverseitig erneut ausgegebenen Fragetext.
+
 ### 5.4 Sortierung Teilnehmeransicht
 
 ```sql
@@ -579,6 +598,19 @@ neu laden — das ist der häufigste Implementierungsfehler in diesem Aufbau.
 Empfohlen: `loading="lazy"` mit neutralem, nicht member-spezifischem
 Initial-Markup, damit die umgebende Seite cachebar bleibt (Abschnitt 8).
 
+Im Reader besteht dieses neutrale Initial-Markup aus zwei lazy Frames. Der
+nicht gepollte Controls-Frame hält Status und Frageformular; der gepollte
+Questions-Frame hält Fragen und Votes. Das Formular zielt mit
+`data-turbo-frame` auf den Questions-Frame. Nach dem POST folgt Turbo dem
+303-Redirect dorthin; bei angefordertem Turbo-Stream-Format aktualisiert die
+GET-Antwort Liste und Controls getrennt. Damit bleiben PRG und eine sofortige
+Listenaktualisierung erhalten, obwohl das Formular außerhalb des Listen-Frames
+liegt.
+
+Reader-Liste und Bühnen-Frame verwenden für Polling-Reloads `refresh="morph"`
+und stabile IDs an interaktiven Elementen. Der Formular-Controls-Frame hat
+weder `data-qna-poll` noch einen Polling-Timer.
+
 ### 7.3 Polling
 
 Turbo pollt nicht von selbst. Die Erweiterung liefert ein **sehr kleines
@@ -599,6 +631,14 @@ Anforderungen:
 * keine doppelten Timer nach Turbo-Visits
 * nur Frames pollen, die im DOM vorhanden sind
 * keine Geschäftslogik im JavaScript
+* kein Polling-Reload, solange der Frame Fokus enthält oder durch eine
+  laufende Frame-/Formaktion als beschäftigt markiert ist
+
+Die letzte Regel betrifft die im gepollten Bereich verbleibenden Vote-Buttons
+und die Sortierumschaltung der Bühne. Das ausgelagerte Fragefeld liegt nicht im
+Polling-Frame: Während dort geschrieben wird, aktualisiert sich die Liste
+weiterhin. Morphing und stabile IDs decken zusätzlich den engen Fall ab, dass
+ein bereits laufender Poll erst während einer beginnenden Interaktion rendert.
 
 **Lastabschätzung gehört ins README:** 2500 ms Intervall × Zuschauerzahl ergibt
 die Requests pro Sekunde auf nicht cachebare Endpunkte. Prüfe, ob die
@@ -630,6 +670,7 @@ Bundle selbst, im eigenen Namensraum:
 
 ```
 contao_qna_reader_frame       GET
+contao_qna_reader_controls    GET
 contao_qna_stage_questions    GET
 contao_qna_question_create    POST
 contao_qna_vote_create        POST
@@ -760,12 +801,19 @@ contao/templates/
 │   ├── qna_session_list.html.twig
 │   └── qna_session_reader.html.twig
 └── qna/
-    ├── reader_frame.html.twig
+    ├── reader_controls.html.twig
+    ├── reader_controls_frame.html.twig
+    ├── reader_controls_update.html.twig
+    ├── reader_questions.html.twig
+    ├── reader_questions_frame.html.twig
+    ├── reader_update.stream.html.twig
     ├── question_list.html.twig
     ├── question.html.twig
     ├── stage_overview.html.twig
     ├── stage_detail.html.twig
-    └── stage_questions.html.twig
+    ├── stage_questions.html.twig
+    ├── stage_content.html.twig
+    └── stage_update.stream.html.twig
 ```
 
 Referenziert wird über die Contao-Hierarchie, nicht über den

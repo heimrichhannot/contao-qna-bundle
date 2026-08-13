@@ -17,6 +17,7 @@ final class QnaReaderViewFactory
             $session->id,
             $session->title,
             $this->frameId($session->id),
+            $this->questionsFrameId($session->id),
         );
     }
 
@@ -27,6 +28,7 @@ final class QnaReaderViewFactory
                 $session->id,
                 $this->frameId($session->id),
                 $this->questionsFrameId($session->id),
+                $this->controlsContentId($session->id),
                 $session->state->value,
                 'qna.reader.status.waiting',
                 false,
@@ -37,6 +39,7 @@ final class QnaReaderViewFactory
                 $session->id,
                 $this->frameId($session->id),
                 $this->questionsFrameId($session->id),
+                $this->controlsContentId($session->id),
                 $session->state->value,
                 'qna.reader.status.open',
                 $canInteract,
@@ -47,6 +50,7 @@ final class QnaReaderViewFactory
                 $session->id,
                 $this->frameId($session->id),
                 $this->questionsFrameId($session->id),
+                $this->controlsContentId($session->id),
                 $session->state->value,
                 'qna.reader.status.closed',
                 false,
@@ -64,5 +68,10 @@ final class QnaReaderViewFactory
     private function questionsFrameId(int $sessionId): string
     {
         return \sprintf('qna-session-%d-questions', $sessionId);
+    }
+
+    private function controlsContentId(int $sessionId): string
+    {
+        return \sprintf('qna-session-%d-controls', $sessionId);
     }
 }

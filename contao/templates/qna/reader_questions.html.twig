@@ -1,0 +1,17 @@
+<div class="qna-reader__questions" data-qna-poll-interval="{{ polling_interval }}" data-qna-state="{{ view.state }}">
+    {% if error_translation_key %}
+        <p class="qna-message qna-message--error" role="alert">
+            {{ error_translation_key|trans({}, 'contao_default') }}
+        </p>
+    {% endif %}
+
+    {% if view.showQuestions %}
+        {% include '@Contao/qna/question_list.html.twig' with {
+            questions: questions,
+            frame_id: view.questionsFrameId ~ '-list',
+            show_vote_buttons: view.showVoteButtons,
+            vote_urls: vote_urls,
+            request_token: request_token
+        } only %}
+    {% endif %}
+</div>

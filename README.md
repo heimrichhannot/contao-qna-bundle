@@ -84,8 +84,9 @@ The bundle contains two content elements and one page controller:
 
 - `qna_session_list` renders published sessions and links to the selected
   reader page through Contao's `ContentUrlGenerator`.
-- `qna_session_reader` renders a cache-neutral lazy Turbo Frame shell for the
-  URL's session alias.
+- `qna_session_reader` renders cache-neutral lazy Turbo Frame shells for the
+  URL's session alias: one stable controls frame and one polling questions
+  frame.
 - page type `qna_stage` renders either the published-session overview or one
   session's operator view. Modern layouts use Contao's Twig-slot
   `ContentComposition`; classic layouts use the documented legacy fallback.
@@ -110,19 +111,30 @@ them.
 
 ## Turbo actions and polling
 
-The reader and stage detail start with a lazy Turbo Frame. Separate GET frame
-routes render current status, questions, vote counts, member vote state,
-forms and CSRF tokens. Question, vote, start and stop forms use POST and a
-Contao `REQUEST_TOKEN`. Successful writes return a frame-local `303 See
-Other`; a business rejection that must remain visible in the frame returns
-`422 Unprocessable Entity`. Missing authentication, failed CSRF validation
-and denied authorization retain their own hard error status.
+The reader starts with two lazy Turbo Frames. Its non-polling controls frame
+contains status, form errors and the question form. Its polling questions
+frame contains questions, vote counts and vote buttons. A status-selective
+Turbo Stream updates the controls only when the server-side session state has
+changed, so normal question polling never replaces text being edited. The
+stage detail uses one polling frame.
+
+Question, vote, start and stop forms use POST and a Contao `REQUEST_TOKEN`.
+Successful writes return a frame-local `303 See Other`; the redirected GET
+uses Turbo Streams to update the affected regions. A created question updates
+the list and resets the form once. A business rejection that must remain
+visible returns `422 Unprocessable Entity` as HTML for the originating frame;
+rejected question text is rendered back into the form. Missing authentication,
+failed CSRF validation and denied authorization retain their own hard error
+status.
 
 Only frames are refreshed; Turbo Drive is not enabled by this bundle. Polling
 pauses while the tab is hidden, removes timers for detached/cached frames,
 avoids duplicate timers and backs off exponentially after transport or frame
-errors, capped at sixteen times the base interval. Sorting by votes or time is
-performed in the database, and the selected sort remains in the frame URL.
+errors, capped at sixteen times the base interval. A polling reload is delayed
+while its frame contains keyboard focus or is processing an action. Polling
+reloads morph elements with stable IDs, protecting vote and sort interactions
+that overlap an already running request. Sorting by votes or time is performed
+in the database, and the selected sort remains in the frame URL.
 
 Every frame and action response uses `Cache-Control: private, no-store`. The
 reader shell and stage detail shell are cache-neutral and contain no member

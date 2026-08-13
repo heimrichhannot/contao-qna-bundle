@@ -1,10 +1,8 @@
-<turbo-frame
-    id="{{ view.frameId }}"
-    class="qna-reader__frame"
-    data-qna-frame="reader"
+<div
+    id="{{ view.controlsContentId }}"
+    class="qna-reader__controls qna-reader__controls--{{ view.state }}"
     data-qna-state="{{ view.state }}"
 >
-    <div data-qna-poll-interval="{{ polling_interval }}">
     {% if error_translation_key %}
         <p class="qna-message qna-message--error" role="alert">
             {{ error_translation_key|trans({}, 'contao_default') }}
@@ -16,7 +14,12 @@
     </p>
 
     {% if view.showQuestionForm %}
-        <form class="qna-question-form" action="{{ question_form_action }}" method="post">
+        <form
+            class="qna-question-form"
+            action="{{ question_form_action }}"
+            method="post"
+            data-turbo-frame="{{ view.questionsFrameId }}"
+        >
             <label class="qna-question-form__label" for="qna-session-{{ view.sessionId }}-question">
                 {{ 'qna.question.label'|trans({}, 'contao_default') }}
             </label>
@@ -26,22 +29,11 @@
                 name="question"
                 maxlength="{{ max_question_length }}"
                 required
-            ></textarea>
+            >{{ question_value }}</textarea>
             <input type="hidden" name="REQUEST_TOKEN" value="{{ request_token }}">
             <button class="qna-button qna-question-form__submit" type="submit">
                 {{ 'qna.question.submit'|trans({}, 'contao_default') }}
             </button>
         </form>
     {% endif %}
-
-    {% if view.showQuestions %}
-        {% include '@Contao/qna/question_list.html.twig' with {
-            questions: questions,
-            frame_id: view.questionsFrameId,
-            show_vote_buttons: view.showVoteButtons,
-            vote_urls: vote_urls,
-            request_token: request_token
-        } only %}
-    {% endif %}
-    </div>
-</turbo-frame>
+</div>

@@ -20,6 +20,8 @@ use Twig\Environment;
 
 final readonly class QnaFrameResponseFactory
 {
+    public const string TURBO_STREAM_CONTENT_TYPE = 'text/vnd.turbo-stream.html';
+
     private const int IDLE_INTERVAL_MULTIPLIER = 4;
 
     public function __construct(
@@ -36,35 +38,47 @@ final readonly class QnaFrameResponseFactory
     ) {
     }
 
-    public function renderReader(
+    public function renderReaderControls(
+        int $sessionId,
+        ?string $errorTranslationKey = null,
+        int $statusCode = Response::HTTP_OK,
+        string $questionValue = '',
+    ): Response {
+        $session = $this->requirePublishedSession($sessionId);
+
+        return $this->createResponse(
+            $this->twig->render(
+                '@Contao/qna/reader_controls_frame.html.twig',
+                $this->createReaderContext($session, false, $errorTranslationKey, $questionValue),
+            ),
+            $statusCode,
+        );
+    }
+
+    public function renderReaderQuestions(
         int $sessionId,
         ?string $errorTranslationKey = null,
         int $statusCode = Response::HTTP_OK,
     ): Response {
         $session = $this->requirePublishedSession($sessionId);
-        $memberId = $this->memberProvider->getIdOrNull();
-        $view = $this->readerViewFactory->createDynamic($session, null !== $memberId);
-        $questions = $view->showQuestions
-            ? $this->questionGateway->findForSession($session->id, $memberId ?? 0)
-            : [];
-        $requestToken = $view->showQuestionForm || $view->showVoteButtons
-            ? $this->csrfTokenManager->getDefaultTokenValue()
-            : null;
 
         return $this->createResponse(
-            $this->twig->render('@Contao/qna/reader_frame.html.twig', [
-                'view' => $view,
-                'questions' => $questions,
-                'question_form_action' => $this->urlGenerator->generate('contao_qna_question_create', [
-                    'sessionId' => $session->id,
-                ]),
-                'vote_urls' => $this->createVoteUrls($questions),
-                'request_token' => $requestToken,
-                'max_question_length' => $this->maxQuestionLength,
-                'polling_interval' => $this->intervalFor($session->state),
-                'error_translation_key' => $errorTranslationKey,
-            ]),
+            $this->twig->render(
+                '@Contao/qna/reader_questions_frame.html.twig',
+                $this->createReaderContext($session, true, $errorTranslationKey),
+            ),
             $statusCode,
+        );
+    }
+
+    public function renderReaderUpdate(int $sessionId, bool $resetQuestionForm = false): Response
+    {
+        $session = $this->requirePublishedSession($sessionId);
+        $context = $this->createReaderContext($session, true);
+        $context['reset_question_form'] = $resetQuestionForm;
+
+        return $this->createStreamResponse(
+            $this->twig->render('@Contao/qna/reader_update.stream.html.twig', $context),
         );
     }
 
@@ -75,6 +89,69 @@ final readonly class QnaFrameResponseFactory
         int $statusCode = Response::HTTP_OK,
     ): Response {
         $session = $this->requirePublishedSession($sessionId);
+
+        return $this->createResponse(
+            $this->twig->render(
+                '@Contao/qna/stage_questions.html.twig',
+                $this->createStageContext($session, $sort, $errorTranslationKey),
+            ),
+            $statusCode,
+        );
+    }
+
+    public function renderStageUpdate(int $sessionId, string $sort = 'votes'): Response
+    {
+        $session = $this->requirePublishedSession($sessionId);
+
+        return $this->createStreamResponse(
+            $this->twig->render(
+                '@Contao/qna/stage_update.stream.html.twig',
+                $this->createStageContext($session, $sort),
+            ),
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function createReaderContext(
+        QnaSession $session,
+        bool $includeQuestions,
+        ?string $errorTranslationKey = null,
+        string $questionValue = '',
+    ): array {
+        $memberId = $this->memberProvider->getIdOrNull();
+        $view = $this->readerViewFactory->createDynamic($session, null !== $memberId);
+        $questions = $includeQuestions && $view->showQuestions
+            ? $this->questionGateway->findForSession($session->id, $memberId ?? 0)
+            : [];
+        $requestToken = $view->showQuestionForm || ($includeQuestions && $view->showVoteButtons)
+            ? $this->csrfTokenManager->getDefaultTokenValue()
+            : null;
+
+        return [
+            'view' => $view,
+            'questions' => $questions,
+            'question_form_action' => $this->urlGenerator->generate('contao_qna_question_create', [
+                'sessionId' => $session->id,
+            ]),
+            'vote_urls' => $this->createVoteUrls($questions),
+            'request_token' => $requestToken,
+            'max_question_length' => $this->maxQuestionLength,
+            'polling_interval' => $this->intervalFor($session->state),
+            'error_translation_key' => $errorTranslationKey,
+            'question_value' => $questionValue,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function createStageContext(
+        QnaSession $session,
+        string $sort,
+        ?string $errorTranslationKey = null,
+    ): array {
         $sort = $this->normalizeSort($sort);
         $showQuestions = SessionState::WAITING !== $session->state;
         $canControl = $this->security->isGranted(QnaSessionControlVoter::ATTRIBUTE, $session);
@@ -82,36 +159,33 @@ final readonly class QnaFrameResponseFactory
         $showStopButton = $canControl && SessionState::OPEN === $session->state;
         $routeParameters = ['sessionId' => $session->id, 'sort' => $sort];
 
-        return $this->createResponse(
-            $this->twig->render('@Contao/qna/stage_questions.html.twig', [
-                'session' => $session,
-                'status_translation_key' => 'qna.stage.status.'.$session->state->value,
-                'questions' => $showQuestions
-                    ? $this->questionGateway->findForStage($session->id, $sort)
-                    : [],
-                'show_questions' => $showQuestions,
-                'show_start_button' => $showStartButton,
-                'show_stop_button' => $showStopButton,
-                'start_url' => $this->urlGenerator->generate('contao_qna_session_start', $routeParameters),
-                'stop_url' => $this->urlGenerator->generate('contao_qna_session_stop', $routeParameters),
-                'request_token' => $showStartButton || $showStopButton
-                    ? $this->csrfTokenManager->getDefaultTokenValue()
-                    : null,
-                'frame_id' => \sprintf('qna-session-%d-stage', $session->id),
-                'sort' => $sort,
-                'sort_votes_url' => $this->urlGenerator->generate('contao_qna_stage_questions', [
-                    'sessionId' => $session->id,
-                    'sort' => 'votes',
-                ]),
-                'sort_time_url' => $this->urlGenerator->generate('contao_qna_stage_questions', [
-                    'sessionId' => $session->id,
-                    'sort' => 'time',
-                ]),
-                'polling_interval' => $this->intervalFor($session->state),
-                'error_translation_key' => $errorTranslationKey,
+        return [
+            'session' => $session,
+            'status_translation_key' => 'qna.stage.status.'.$session->state->value,
+            'questions' => $showQuestions
+                ? $this->questionGateway->findForStage($session->id, $sort)
+                : [],
+            'show_questions' => $showQuestions,
+            'show_start_button' => $showStartButton,
+            'show_stop_button' => $showStopButton,
+            'start_url' => $this->urlGenerator->generate('contao_qna_session_start', $routeParameters),
+            'stop_url' => $this->urlGenerator->generate('contao_qna_session_stop', $routeParameters),
+            'request_token' => $showStartButton || $showStopButton
+                ? $this->csrfTokenManager->getDefaultTokenValue()
+                : null,
+            'frame_id' => \sprintf('qna-session-%d-stage', $session->id),
+            'sort' => $sort,
+            'sort_votes_url' => $this->urlGenerator->generate('contao_qna_stage_questions', [
+                'sessionId' => $session->id,
+                'sort' => 'votes',
             ]),
-            $statusCode,
-        );
+            'sort_time_url' => $this->urlGenerator->generate('contao_qna_stage_questions', [
+                'sessionId' => $session->id,
+                'sort' => 'time',
+            ]),
+            'polling_interval' => $this->intervalFor($session->state),
+            'error_translation_key' => $errorTranslationKey,
+        ];
     }
 
     /**
@@ -161,6 +235,14 @@ final readonly class QnaFrameResponseFactory
         return new Response($content, $statusCode, [
             'Cache-Control' => 'private, no-store',
             'Content-Type' => 'text/html; charset=UTF-8',
+        ]);
+    }
+
+    private function createStreamResponse(string $content): Response
+    {
+        return new Response($content, Response::HTTP_OK, [
+            'Cache-Control' => 'private, no-store',
+            'Content-Type' => self::TURBO_STREAM_CONTENT_TYPE.'; charset=UTF-8',
         ]);
     }
 }

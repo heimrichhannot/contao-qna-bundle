@@ -42,7 +42,10 @@ class QnaSessionReaderController extends AbstractContentElementController
         $this->tagResponse('contao.db.tl_qna_session.'.$session->id);
 
         $template->set('view', $this->viewFactory->createInitial($session));
-        $template->set('frame_src', $this->urlGenerator->generate('contao_qna_reader_frame', [
+        $template->set('controls_frame_src', $this->urlGenerator->generate('contao_qna_reader_controls', [
+            'sessionId' => $session->id,
+        ]));
+        $template->set('questions_frame_src', $this->urlGenerator->generate('contao_qna_reader_frame', [
             'sessionId' => $session->id,
         ]));
         $template->set('polling_interval', $this->pollingInterval);

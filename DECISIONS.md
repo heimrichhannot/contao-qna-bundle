@@ -200,18 +200,54 @@ einzuführen.
 
 ## D7 – Formularantwort (entschieden)
 
-Die vier Schreibaktionen verwenden einen Frame-lokalen
-Post/Redirect/Get-Flow: POST mutiert ausschließlich über den jeweiligen
-Service und antwortet mit `303 See Other` auf den passenden HTML-Frame-
-Endpunkt. Turbo folgt dem Redirect innerhalb des absendenden Frames; der
-Server rendert anschließend den vollständigen aktuellen Zustand. Das vermeidet
-eine zweite Turbo-Stream-Variantenmatrix für Reader und Bühne und bleibt bei
-deaktiviertem Turbo Drive robust. Fachliche Ablehnungen liefern denselben
-semantischen Frame mit Fehlermeldung und Status `422 Unprocessable Entity`,
-damit Turbo ihn ersetzt. Fehlende Authentifizierung, fehlende
-Steuerberechtigung und CSRF-Abweisungen behalten ihre harten HTTP-Statuscodes.
+Die vier Schreibaktionen behalten den Post/Redirect/Get-Flow: POST mutiert
+ausschließlich über den jeweiligen Service und antwortet mit `303 See Other`
+auf den passenden GET-Endpunkt. Turbo fordert bei unsicheren Formularrequests
+automatisch `text/vnd.turbo-stream.html` an und behält den Accept-Header beim
+Redirect bei (`public/turbo.es2017-esm.js`, `FormSubmission.prepareRequest()`).
+Die GET-Endpunkte antworten deshalb bei dieser Content-Negotiation mit
+Turbo-Streams, bei normalen Frame-Polls weiterhin mit vollständigem
+HTML-Frame-Markup.
 
-Alle sechs Routen liegen durch `config/routes.yaml` im Frontend-Scope. Die
+Diese Erweiterung von D7 ist für die Reader-Aufteilung notwendig. Status und
+Frageformular liegen im nicht gepollten Controls-Frame
+`qna-session-<id>-reader`; Fragen und Votes liegen im gepollten Questions-Frame
+`qna-session-<id>-questions`. Das Frageformular zielt per
+`data-turbo-frame` auf den Questions-Frame. Nach erfolgreicher Erstellung
+aktualisiert die Redirect-GET-Antwort die Liste und ersetzt den Controls-Inhalt
+einmalig, wodurch das Feld geleert wird. Nach Vote, Start und Stopp
+aktualisieren Streams nur ihren jeweiligen dynamischen Bereich. Die
+Sortierlinks verwenden dagegen eine normale Frame-Navigation, damit Turbo die
+gewählte URL als neue Frame-`src` übernimmt; das Bundle setzt für diese
+Navigation den vorhandenen Turbo-Morph-Renderer ein, damit der Fokus an der
+stabilen Link-ID erhalten bleibt.
+Da Turbo Stream-Antworten vor einer Frame-Navigation abfängt
+(`StreamObserver.inspectFetchResponse()`), wird der einmalige
+`resetQuestionForm`-Redirect nicht zur dauerhaften `src` des Questions-Frames.
+
+Normale Listen-Polls führen ein statusselektives Stream-Update mit: Nur ein
+Controls-Knoten, dessen `data-qna-state` nicht dem aktuellen Serverstatus
+entspricht, ist Ziel. Bei unverändertem `open` bleibt der bestehende
+Textarea-DOM-Knoten samt Wert, Cursor und Auswahl unangetastet; bei
+`waiting`/`closed` wird der Formularbereich spätestens durch den nächsten
+Listen-Poll ersetzt. Es wird kein Formularzustand in JavaScript gespeichert.
+
+Fachliche Ablehnungen bleiben HTML-Antworten mit `422 Unprocessable Entity`.
+Für eine fehlgeschlagene Frame-Form-Submission lädt Turbo ausdrücklich die
+Antwort in den ursprünglichen Frame statt in das mit `data-turbo-frame`
+angegebene Erfolgsziel (`FrameController.formSubmissionFailedWithResponse()`
+im ausgelieferten Turbo-Modul). Deshalb erscheint eine Fragenvalidierung im
+Controls-Frame; der eingereichte Wert wird serverseitig erneut gerendert.
+Fehlende Authentifizierung, fehlende Steuerberechtigung und CSRF-Abweisungen
+behalten ihre harten HTTP-Statuscodes.
+
+Polling-Reloads der Reader-Liste und der Bühne verwenden Morphing mit stabilen
+IDs. Das Polling-Modul verschiebt außerdem Reloads, während der betreffende
+Frame Fokus enthält oder beschäftigt ist. Dadurch bleiben Vote-Klicks,
+Tastaturfokus und die Bühnen-Sortierumschaltung vor einem zeitgleichen Tausch
+geschützt, ohne das Polling der außerhalb liegenden Frageneingabe anzuhalten.
+
+Alle sieben Routen liegen durch `config/routes.yaml` im Frontend-Scope. Die
 vier Aktionen akzeptieren nur POST und setzen `_token_check = true`; der in
 `vendor/contao/core-bundle/src/EventListener/RequestTokenListener.php`
 verifizierte Listener prüft dadurch bei zustandsbehafteten bzw.
