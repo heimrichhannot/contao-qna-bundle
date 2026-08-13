@@ -19,6 +19,7 @@ use HeimrichHannot\QnaBundle\View\QnaReaderViewFactory;
 use HeimrichHannot\QnaBundle\View\QnaSessionListViewFactory;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 final class QnaSessionReaderControllerTest extends TestCase
 {
@@ -129,7 +130,13 @@ final class QnaSessionReaderControllerTest extends TestCase
             ->willReturn($input);
 
         return [
-            new TestableQnaSessionReaderController($framework, $gateway, new QnaReaderViewFactory()),
+            new TestableQnaSessionReaderController(
+                $framework,
+                $gateway,
+                new QnaReaderViewFactory(),
+                $this->createStub(UrlGeneratorInterface::class),
+                2500,
+            ),
             $input,
         ];
     }

@@ -30,8 +30,9 @@ final class QnaTemplateStructureTest extends TestCase
 
         self::assertStringContainsString('@HeimrichHannotQna/qna/question_list.html.twig', $readerFrame);
         self::assertStringContainsString('@HeimrichHannotQna/qna/question.html.twig', $questionList);
-        self::assertStringContainsString('<turbo-frame', $questionList);
+        self::assertStringContainsString('class="qna-questions"', $questionList);
         self::assertStringContainsString('id="{{ frame_id }}"', $questionList);
+        self::assertStringNotContainsString('<turbo-frame', $questionList);
         self::assertStringNotContainsString('aria-live', $questionList);
         self::assertStringContainsString('<button', $question);
         self::assertStringContainsString('aria-pressed=', $question);

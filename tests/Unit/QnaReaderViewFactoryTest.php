@@ -52,4 +52,15 @@ final class QnaReaderViewFactoryTest extends TestCase
             get_object_vars($view),
         );
     }
+
+    public function testAnonymousOpenReaderShowsQuestionsWithoutWriteControls(): void
+    {
+        $session = new QnaSession(42, 'Future', 'future', true, SessionState::OPEN, 100, null);
+
+        $view = (new QnaReaderViewFactory())->createDynamic($session, false);
+
+        self::assertTrue($view->showQuestions);
+        self::assertFalse($view->showQuestionForm);
+        self::assertFalse($view->showVoteButtons);
+    }
 }
