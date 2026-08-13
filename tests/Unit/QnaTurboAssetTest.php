@@ -8,14 +8,16 @@ use PHPUnit\Framework\TestCase;
 
 final class QnaTurboAssetTest extends TestCase
 {
-    public function testTurboIsPinnedAndDriveIsDisabled(): void
+    public function testTurboIsPinnedAndAnExistingInstanceIsKeptUnchanged(): void
     {
         $turbo = $this->read('public/turbo.es2017-esm.js');
         $polling = $this->read('public/qna.js');
 
         self::assertStringStartsWith("/*!\nTurbo 8.0.23", $turbo);
+        self::assertStringContainsString('if (!window.Turbo)', $polling);
+        self::assertStringContainsString('await import("./turbo.es2017-esm.js")', $polling);
         self::assertStringContainsString('Turbo.session.drive = false', $polling);
-        self::assertStringContainsString('import * as Turbo from "./turbo.es2017-esm.js"', $polling);
+        self::assertStringNotContainsString('import * as Turbo', $polling);
         self::assertStringNotContainsString('2500', $polling);
     }
 

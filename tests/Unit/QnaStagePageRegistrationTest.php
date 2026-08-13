@@ -26,7 +26,7 @@ final class QnaStagePageRegistrationTest extends TestCase
         self::assertSame('qna_stage', $attribute->type);
         self::assertSame('{alias}', $attribute->path);
         self::assertSame(['alias' => ''], $attribute->defaults);
-        self::assertTrue($attribute->contentComposition);
+        self::assertFalse($attribute->contentComposition);
         self::assertStringNotContainsString('auto_item', (string) $attribute->path);
     }
 

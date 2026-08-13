@@ -40,6 +40,34 @@ final class QnaTemplateStructureTest extends TestCase
         self::assertStringContainsString(':focus-visible', $styles);
     }
 
+    public function testParameterizedContaoTranslationsUsePositionalPlaceholders(): void
+    {
+        foreach (['de', 'en'] as $locale) {
+            $translations = require \dirname(__DIR__, 2).'/translations/contao_default.'.$locale.'.php';
+            self::assertIsArray($translations);
+
+            foreach ([
+                'qna.session_list.open',
+                'qna.question.vote_count',
+                'qna.vote.label',
+                'qna.vote.selected_label',
+            ] as $key) {
+                self::assertIsString($translations[$key] ?? null);
+                self::assertStringContainsString('%s', $translations[$key]);
+                self::assertDoesNotMatchRegularExpression('/%[a-z_]+%/i', $translations[$key]);
+            }
+        }
+
+        self::assertStringContainsString(
+            "trans([session.title], 'contao_default')",
+            $this->read('templates/content_element/qna_session_list.html.twig'),
+        );
+        self::assertStringContainsString(
+            "trans([question.voteCount], 'contao_default')",
+            $this->read('templates/qna/question.html.twig'),
+        );
+    }
+
     private function read(string $path): string
     {
         $contents = file_get_contents(\dirname(__DIR__, 2).'/'.$path);

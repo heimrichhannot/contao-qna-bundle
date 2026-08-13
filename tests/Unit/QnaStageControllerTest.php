@@ -17,6 +17,8 @@ use Contao\LayoutModel;
 use Contao\PageModel;
 use Contao\PageRegular;
 use HeimrichHannot\QnaBundle\Controller\Page\QnaStageController;
+use HeimrichHannot\QnaBundle\Dto\QnaSession;
+use HeimrichHannot\QnaBundle\Enum\SessionState;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Response;
@@ -129,6 +131,60 @@ final class QnaStageControllerTest extends TestCase
         self::assertSame('<html>Legacy</html>', $response->getContent());
         self::assertTrue($response->headers->hasCacheControlDirective('private'));
         self::assertArrayNotHasKey('qna_stage', self::getGeneratePageHooks());
+    }
+
+    public function testPublishedAliasRendersTheStageDetailShell(): void
+    {
+        $page = $this->createPage();
+        $layout = $this->createLayout('modern');
+        $session = new QnaSession(7, 'Mobility', 'mobility', true, SessionState::OPEN, 100, null);
+        $gateway = $this->createMock(QnaSessionGateway::class);
+        $gateway->expects(self::once())
+            ->method('findPublishedByAlias')
+            ->with('mobility')
+            ->willReturn($session);
+        $urlGenerator = $this->createMock(UrlGeneratorInterface::class);
+        $urlGenerator->expects(self::once())
+            ->method('generate')
+            ->with('contao_qna_stage_questions', ['sessionId' => 7, 'sort' => 'time'])
+            ->willReturn('/_qna/stage/7/questions?sort=time');
+        $twig = $this->createMock(Environment::class);
+        $twig->expects(self::once())
+            ->method('render')
+            ->with(
+                '@HeimrichHannotQna/qna/stage_detail.html.twig',
+                self::callback(static fn (array $context): bool => $session === $context['session']
+                    && 'qna-session-7-stage' === $context['frame_id']
+                    && '/_qna/stage/7/questions?sort=time' === $context['frame_src']),
+            )
+            ->willReturn('<section>Detail</section>');
+
+        $layoutTemplate = new LayoutTemplate(
+            'layout/modern',
+            static function (LayoutTemplate $template, ?Response $response): Response {
+                $content = $template->getSlot('main');
+                self::assertIsString($content);
+
+                return new Response($content);
+            },
+        );
+        $builder = $this->createStub(ContentCompositionBuilder::class);
+        $builder->method('buildLayoutTemplate')->willReturn($layoutTemplate);
+        $composition = $this->createStub(ContentComposition::class);
+        $composition->method('createContentCompositionBuilder')->willReturn($builder);
+        $controller = new TestableQnaStageController(
+            $composition,
+            $this->createFramework($layout),
+            $this->createStub(ResponseContextAccessor::class),
+            $gateway,
+            $urlGenerator,
+            $twig,
+            2500,
+        );
+
+        $response = $controller->renderForTest($page, 'mobility', 'time');
+
+        self::assertSame('<section>Detail</section>', $response->getContent());
     }
 
     public function testUnknownStageAliasThrowsPageNotFound(): void

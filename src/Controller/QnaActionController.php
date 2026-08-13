@@ -74,13 +74,13 @@ final readonly class QnaActionController
             return $this->responseFactory->renderReader(
                 $sessionId,
                 'qna.error.question_cooldown',
-                Response::HTTP_TOO_MANY_REQUESTS,
+                Response::HTTP_UNPROCESSABLE_ENTITY,
             );
         } catch (SessionNotOpenException) {
             return $this->responseFactory->renderReader(
                 $sessionId,
                 'qna.error.session_not_open',
-                Response::HTTP_CONFLICT,
+                Response::HTTP_UNPROCESSABLE_ENTITY,
             );
         } catch (SessionNotFoundException|SessionNotPublishedException) {
             throw new PageNotFoundException();
@@ -110,7 +110,7 @@ final readonly class QnaActionController
             return $this->responseFactory->renderReader(
                 $sessionId,
                 'qna.error.session_not_open',
-                Response::HTTP_CONFLICT,
+                Response::HTTP_UNPROCESSABLE_ENTITY,
             );
         } catch (QuestionNotFoundException|SessionNotFoundException|SessionNotPublishedException) {
             throw new PageNotFoundException();
@@ -138,7 +138,7 @@ final readonly class QnaActionController
                 $session->id,
                 $sort,
                 'qna.error.invalid_transition',
-                Response::HTTP_CONFLICT,
+                Response::HTTP_UNPROCESSABLE_ENTITY,
             );
         } catch (SessionNotFoundException|SessionNotPublishedException) {
             throw new PageNotFoundException();
@@ -169,7 +169,7 @@ final readonly class QnaActionController
                 $session->id,
                 $sort,
                 'qna.error.invalid_transition',
-                Response::HTTP_CONFLICT,
+                Response::HTTP_UNPROCESSABLE_ENTITY,
             );
         } catch (SessionNotFoundException|SessionNotPublishedException) {
             throw new PageNotFoundException();

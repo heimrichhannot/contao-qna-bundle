@@ -2,7 +2,7 @@
     <article class="qna-question" aria-labelledby="qna-question-{{ question.id }}-text">
         <p id="qna-question-{{ question.id }}-text" class="qna-question__text">{{ question.question }}</p>
         <p class="qna-question__votes">
-            {{ 'qna.question.vote_count'|trans({'%count%': question.voteCount}, 'contao_default') }}
+            {{ 'qna.question.vote_count'|trans([question.voteCount], 'contao_default') }}
         </p>
 
         {% if show_vote_button %}
@@ -11,7 +11,7 @@
                 <button
                     class="qna-button qna-vote-button{{ question.hasVoted ? ' qna-vote-button--selected' : '' }}"
                     type="submit"
-                    aria-label="{{ (question.hasVoted ? 'qna.vote.selected_label' : 'qna.vote.label')|trans({'%question%': question.question}, 'contao_default') }}"
+                    aria-label="{{ (question.hasVoted ? 'qna.vote.selected_label' : 'qna.vote.label')|trans([question.question], 'contao_default') }}"
                     aria-pressed="{{ question.hasVoted ? 'true' : 'false' }}"
                 >
                     {{ (question.hasVoted ? 'qna.vote.selected' : 'qna.vote.submit')|trans({}, 'contao_default') }}

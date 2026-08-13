@@ -64,6 +64,29 @@ Falls eine Host-Konfiguration technisch unvermeidbar ist, wird sie im README
 unter „Voraussetzungen" dokumentiert — und zuvor ernsthaft versucht,
 sie zu vermeiden.
 
+### 0.5 Integrationsumgebung
+
+Für Integrationstests steht ein lauffähiges Contao-5.7-Projekt bereit:
+**DDEV-Projekt `contao0507.contao`**, in dem die Erweiterung per Symlink
+eingebunden ist. Änderungen am Paket wirken dort sofort.
+
+Konsequenzen:
+
+* Alle Kommandos laufen **im Container**, nicht auf dem Host — also
+  `ddev exec …` bzw. `ddev php`, `ddev composer`, `ddev mysql`. Datenbank und
+  PHP-Umgebung sind vom Host aus nicht erreichbar.
+* Nach Änderungen an DCA, Service-Definitionen, Routen oder Übersetzungen wird
+  der Contao-Cache geleert, sonst sind die Änderungen nicht wirksam.
+* Damit sind **echte** Integrationsprüfungen möglich: Datenbankschema,
+  Container, Routen, Backend-Verwaltung, Frontend-Ausgabe. Diese Checks werden
+  ausgeführt und nicht als „nicht verifiziert" abgehakt.
+* **Testdaten** im DDEV-Projekt anzulegen ist ausdrücklich erlaubt und
+  erwünscht: Seiten, Layouts, Fragerunden, Mitglieder, Mitgliedergruppen. Das
+  ist keine Verletzung von §0.4 — dort geht es um Anwendungs*code*, nicht um
+  Inhalte einer Testinstanz.
+* Der symlinkbasierte Einbindungsweg ist reine Entwicklungsinfrastruktur und
+  gehört nicht ins ausgelieferte Paket.
+
 ---
 
 ## 1. Fachliches Ziel
@@ -402,10 +425,22 @@ readonly class ExamplePageController
 }
 ```
 
-Das ist der vorgesehene Weg für den Bühnen-Seitentyp: `contentComposition`
-bleibt aktiv, der Page Controller rendert seine Twig-Ausgabe zu einem String
-und setzt sie in den `main`-Slot. Header, Footer und alle übrigen Slots kommen
-weiterhin aus dem gewählten Seitenlayout.
+Das ist der vorgesehene Weg für den Bühnen-Seitentyp: Der Page Controller
+rendert seine Twig-Ausgabe zu einem String und setzt sie in den `main`-Slot.
+Header, Footer und alle übrigen Slots kommen weiterhin aus dem gewählten
+Seitenlayout.
+
+Der Seitentyp wird dabei mit **`contentComposition: false`** registriert. Mit
+`true` könnten Redakteure der Bühnenseite Artikel zuweisen, deren Inhalt der
+Controller anschließend beim Setzen des `main`-Slots überschreibt — der Inhalt
+verschwände ohne Fehlermeldung und ohne Hinweis im Backend. Mit `false` bietet
+Contao die Artikelverwaltung für diesen Seitentyp gar nicht erst an.
+
+Zu verifizieren: dass `createContentCompositionBuilder()` und
+`buildLayoutTemplate()` auch bei `contentComposition: false` das
+Layout-Template samt Slots liefern. Der Schalter steuert die Artikelzuweisung,
+nicht den Layoutaufbau — das ist aber im `vendor/`-Code zu belegen und real zu
+testen, weil davon der gesamte Renderpfad abhängt.
 
 Vorgehen:
 
@@ -415,8 +450,7 @@ Vorgehen:
    im Detail abweichen. Prüfe insbesondere, ob `setSlot()` einen String
    erwartet oder auch ein Template-Objekt akzeptiert.
 2. Nur falls die Klasse dort wider Erwarten nicht existiert: Fallback auf ein
-   eigenes Twig-Layout mit `contentComposition: false`, dokumentiert als
-   Abweichung.
+   eigenes Twig-Layout, dokumentiert als Abweichung.
 3. Ergebnis, geprüfte Dateipfade und die tatsächlichen Signaturen nach
    `DECISIONS.md` (D1).
 
@@ -524,6 +558,14 @@ vorhandenes JavaScript brechen. Deshalb verbindlich:
 * Turbo Drive deaktivieren (`Turbo.session.drive = false` oder gleichwertig)
 * nur Turbo **Frames** und **Streams** verwenden
 * das Skript nur auf Seiten laden, auf denen Q&A-Ausgabe existiert
+
+**Vorhandene Turbo-Instanz respektieren:** Bringt das Host-Projekt bereits
+Turbo mit, darf das Bundle weder eine zweite Instanz laden noch global
+`drive` abschalten — sonst legt eine einzelne Q&A-Seite die Turbo-Navigation
+des ganzen Projekts still. Das Bundle-Modul prüft deshalb vor dem Import, ob
+`window.Turbo` existiert, und nutzt in dem Fall die vorhandene Instanz
+unverändert. Frames und Streams funktionieren damit genauso. Das gehört ins
+README.
 
 ### 7.2 Turbo Frames
 
@@ -701,11 +743,19 @@ Eine administrative, read-only Liste der Fragen mit Löschmöglichkeit
 
 ### 10.2 Templates
 
-Moderne Twig-Templates, keine `.html5`-Templates. Eigener Template-Namespace
-für das Bundle.
+Moderne Twig-Templates, keine `.html5`-Templates.
+
+**Ablageort ist `contao/templates/`, nicht `templates/`.** Nur das
+Contao-Verzeichnis speist die verwaltete Template-Hierarchie
+(`ContaoFilesystemLoader`, `TemplateLocator`) — daraus ergibt sich der
+`@Contao`-Namespace und damit die Möglichkeit, dass Host-Projekte einzelne
+Templates auf dem üblichen Contao-Weg überschreiben. Ein Bundle-Ordner
+`templates/` erzeugt lediglich den Symfony-Namespace `@HeimrichHannotQna`;
+darüber referenzierte Templates rendern zwar, sind für Redakteure und
+Integratoren aber nicht überschreibbar.
 
 ```
-templates/
+contao/templates/
 ├── content_element/
 │   ├── qna_session_list.html.twig
 │   └── qna_session_reader.html.twig
@@ -717,6 +767,10 @@ templates/
     ├── stage_detail.html.twig
     └── stage_questions.html.twig
 ```
+
+Referenziert wird über die Contao-Hierarchie, nicht über den
+Symfony-Bundle-Namespace. Dass ein Host-Projekt ein Template überschreiben
+kann, gehört zu den Pflicht-Tests.
 
 Markup zwischen Reader und Bühne wird über gemeinsame Partials geteilt, nicht
 dupliziert. Keine Geschäftslogik in Twig.
@@ -763,6 +817,14 @@ Fachliche Zuordnungen wie „aktive Session", „Reader-Session" oder
 Saubere HTTP-Fehler statt stiller Fehler. 404 bei unbekanntem oder
 unveröffentlichtem Alias und bei fehlendem erforderlichem Item-Parameter.
 Passende 4xx-Antworten bei ungültigen Aktionen (z. B. Frage bei `closed`).
+
+Für abgelehnte Formulare innerhalb eines Turbo-Frames gilt **`422
+Unprocessable Entity`**. Das ist der Statuscode, bei dem Turbo die Antwort
+rendert statt sie als Fehler zu behandeln. Bei anderen 4xx-Codes kann es sein,
+dass der Frame nicht ersetzt wird und die Fehlermeldung den Nutzer nie
+erreicht. Wo also eine fachliche Ablehnung mit sichtbarer Meldung im Frame
+enden soll, ist 422 zu verwenden — hart abgewiesene Requests
+(fehlende Authentifizierung, CSRF) behalten ihren eigentlichen Code.
 Keine internen Exceptions oder Datenbankfehler in der Ausgabe. Produktionsfehler
 über das normale Symfony-/Contao-Logging.
 
@@ -770,19 +832,25 @@ Keine internen Exceptions oder Datenbankfehler in der Ausgabe. Produktionsfehler
 
 ## 12. Tests und Qualität
 
-### 12.1 Realistischer Testzuschnitt
+### 12.1 Testzuschnitt
 
-Vollwertige Functional Tests für ein Contao-Bundle brauchen einen Test-Kernel
-und eine MySQL-Instanz. Ist beides nicht verfügbar, wird **nicht** stundenlang
-eine nicht lauffähige Infrastruktur gebaut. Stattdessen:
+Pflichtabdeckung sind **Unit-Tests für alle Services** mit gemockten Gateways.
+Sie laufen ohne Kernel und ohne Datenbank.
 
-* Unit-Tests für alle Services mit gemockten Gateways — das ist die
-  Pflichtabdeckung
-* der Unique-Constraint wird über eine Assertion auf die DCA-/Schema-Definition
-  geprüft, das Duplicate-Verhalten über einen Service-Test mit gemockter
-  `UniqueConstraintViolationException`
-* Controller-Tests, soweit ohne vollständigen Contao-Kernel möglich
-* alles Weitere als „nicht verifiziert" im Bericht ausweisen
+Darüber hinaus steht mit dem DDEV-Projekt aus §0.5 eine echte Umgebung samt
+MySQL bereit. Deshalb gilt:
+
+* Verhalten, das nur gegen eine echte Datenbank belastbar ist, wird dort
+  geprüft — insbesondere der Unique-Constraint auf `tl_qna_vote`, das
+  Duplicate-Vote-Verhalten und die Löschkaskade über `ptable`/`ctable`.
+* Ergänzend bleibt die Assertion auf die DCA-/Schema-Definition sinnvoll, weil
+  sie den Constraint auch ohne Datenbank absichert.
+* Frontend-Verhalten (Frames, Statuscodes, Cache-Header) wird real über die
+  Instanz geprüft, nicht nur behauptet.
+
+Was sich trotz verfügbarer Umgebung nicht prüfen lässt, wird als **nicht
+verifiziert** ausgewiesen. Eine aufwendige zweite Testinfrastruktur neben der
+vorhandenen Instanz wird nicht gebaut.
 
 ### 12.2 Pflicht-Testfälle
 
@@ -826,10 +894,6 @@ Toolchain: PHPUnit, PHPStan, PHP-CS-Fixer. Wer sie hinzufügt, konfiguriert sie
 vollständig und lässt sie laufen. Keine halb konfigurierte Toolchain
 hinterlassen.
 
-### 12.4 Testumgebung
-
-I installed and symlinked the extension in ddev project contao0507.contao, so you can execute your tests
-
 ---
 
 ## 13. Zu treffende Entscheidungen
@@ -861,8 +925,7 @@ contao-qna-bundle/
 ├── DECISIONS.md
 ├── src/
 ├── config/
-├── contao/
-├── templates/
+├── contao/          (DCA, config, templates/)
 ├── translations/
 ├── public/
 └── tests/

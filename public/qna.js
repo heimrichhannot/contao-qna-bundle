@@ -1,6 +1,8 @@
-import * as Turbo from "./turbo.es2017-esm.js"
+if (!window.Turbo) {
+    const Turbo = await import("./turbo.es2017-esm.js")
 
-Turbo.session.drive = false
+    Turbo.session.drive = false
+}
 
 const BACKOFF_FACTOR = 2
 const frames = new Map()

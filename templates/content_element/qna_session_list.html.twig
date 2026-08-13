@@ -13,7 +13,7 @@
                         <a
                             class="qna-session-list__link"
                             href="{{ session.url }}"
-                            aria-label="{{ 'qna.session_list.open'|trans({'%title%': session.title}, 'contao_default') }}"
+                            aria-label="{{ 'qna.session_list.open'|trans([session.title], 'contao_default') }}"
                         >{{ session.title }}</a>
                     </li>
                 {% endfor %}

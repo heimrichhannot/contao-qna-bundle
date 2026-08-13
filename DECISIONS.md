@@ -16,7 +16,8 @@ zuständigen Symfony- und Contao-Manager-Quellen genannt.
 | Content-Element-Basis | ja | `vendor/contao/core-bundle/src/Controller/ContentElement/AbstractContentElementController.php`: finaler Controller-Aufruf mit `Request`, `ContentModel`, Section und Klassen; die Unterklasse implementiert `getResponse(FragmentTemplate, ContentModel, Request): Response`. |
 | Page-Controller-Basis | ja | `vendor/contao/core-bundle/src/Controller/Page/AbstractPageController.php`: `renderPage(PageModel): Response`; `vendor/contao/core-bundle/src/Controller/Page/RegularPageController.php`: regulärer, mit `#[AsPage]` registrierter Controller. |
 | `LayoutTemplate` | ja | `vendor/contao/core-bundle/src/Twig/LayoutTemplate.php`: `setSlot(string, Stringable\|string): void` und `getResponse(?Response = null): Response`. |
-| Moderne Seitenlayouts und Slots | ja | `vendor/contao/core-bundle/src/ContentComposition/ContentComposition.php`: `createContentCompositionBuilder(PageModel): ContentCompositionBuilder`; `vendor/contao/core-bundle/src/ContentComposition/ContentCompositionBuilder.php`: `buildLayoutTemplate(): LayoutTemplate`, Aufbau der Slots und Abbruch bei einem nicht modernen Layout. Die API ist dort als `@experimental` markiert. |
+| Moderne Seitenlayouts und Slots | ja | `vendor/contao/core-bundle/src/ContentComposition/ContentComposition.php`: `createContentCompositionBuilder(PageModel): ContentCompositionBuilder`; `vendor/contao/core-bundle/src/ContentComposition/ContentCompositionBuilder.php`: `buildLayoutTemplate(): LayoutTemplate`, Aufbau der Slots und Abbruch bei einem nicht modernen Layout. Beide Methoden sind unabhängig vom Page-Registry-Schalter `contentComposition`; die API ist dort als `@experimental` markiert. |
+| Page-Content-Composition-Schalter | ja | `vendor/contao/core-bundle/src/DependencyInjection/Compiler/RegisterPagesPass.php` übergibt das Attribut an `vendor/contao/core-bundle/src/Routing/Page/PageRegistry.php`. Dessen `supportsContentComposition()` wird in `vendor/contao/core-bundle/src/EventListener/DataContainer/ContentCompositionListener.php` nur für Artikeloperation und automatische Artikelanlage ausgewertet. |
 | Frontend-Scope für eigene Routen | ja | `vendor/contao/core-bundle/src/ContaoCoreBundle.php`: `SCOPE_FRONTEND = 'frontend'`; `vendor/contao/core-bundle/src/Routing/Page/PageRoute.php` setzt `_scope`; `vendor/contao/core-bundle/src/Routing/ScopeMatcher.php` wertet ihn aus. Eigene Controller-Routen erhalten in `config/routes.yaml` den Default `_scope: frontend`. |
 | Bundle-Template-Namespace | ja | `vendor/symfony/twig-bundle/DependencyInjection/TwigExtension.php`: ein Bundle-Verzeichnis `templates/` wird unter dem um `Bundle` gekürzten Bundle-Namen registriert. Für `HeimrichHannotQnaBundle` ist das `@HeimrichHannotQna`. Contao-spezifische Template-Hierarchien sind in `vendor/contao/core-bundle/src/Twig/Loader/ContaoFilesystemLoader.php` und `vendor/contao/core-bundle/src/Twig/Loader/TemplateLocator.php` implementiert. |
 | Asset-Bereitstellung | ja | `vendor/contao/core-bundle/src/DependencyInjection/Compiler/AddAssetsPackagesPass.php`: ein Bundle-Ordner `public/` wird als Asset-Paket und unter `bundles/<bundle-name>` registriert; `vendor/symfony/framework-bundle/Command/AssetsInstallCommand.php` installiert die Dateien. `assets/` bleibt der Quellordner, auslieferbare Artefakte gehören nach `public/`. |
@@ -29,6 +30,8 @@ zuständigen Symfony- und Contao-Manager-Quellen genannt.
 | Frontend-CSRF | ja | `vendor/contao/core-bundle/src/EventListener/RequestTokenListener.php` prüft Frontend-POSTs und erwartet `REQUEST_TOKEN`; `vendor/contao/core-bundle/src/Csrf/ContaoCsrfTokenManager.php` stellt `getDefaultTokenValue()` bereit; `vendor/contao/core-bundle/src/Controller/AbstractController.php` konfiguriert Contao-Formulare mit `contao.csrf.token_manager` und dem Token-Feld. |
 | Fragment-Cache-Verhalten | ja | `vendor/contao/core-bundle/src/Controller/AbstractFragmentController.php` markiert automatisch erzeugte Fragment-Antworten zur Cache-Control-Zusammenführung; `vendor/contao/core-bundle/src/EventListener/SubrequestCacheSubscriber.php` führt die Header in die Hauptantwort zusammen. Eine explizit erzeugte `Response` behält die gesetzten Cache-Header. |
 | `ResponseContext` | ja | `vendor/contao/core-bundle/src/Routing/ResponseContext/ResponseContext.php` hält kontextbezogene Services und Header; `vendor/contao/core-bundle/src/Routing/ResponseContext/ResponseContextAccessor.php` finalisiert diesen Kontext. Es handelt sich nicht um einen Cache-Schalter. |
+| Page-Route mit optionalem Parameter und Suffix | ja, mit Einschränkung | `vendor/contao/core-bundle/src/Routing/Page/PageRoute.php` definiert `PAGE_BASED_ROUTE_NAME`; `vendor/contao/core-bundle/src/Routing/Page/PageRouteCompiler.php` entfernt den Suffix vor dem Kompilieren und fügt ihn anschließend wieder ein. Dadurch matchen sowohl `/buehne.html` als auch `/buehne/alias.html`. Die URL-Generierung mit einem nicht leeren `alias` funktioniert; bei `alias = ''` lehnt der Symfony-Generator in 5.7.11 den leeren Wert vor `.html` jedoch als ungültig ab. |
+| Klassisches Seiten-Rendering | ja, veraltet | `vendor/contao/core-bundle/contao/controllers/FrontendIndex.php`: `renderPage(PageModel): Response` delegiert in 5.7 an den regulären Seitencontroller und ist für Contao 6 als entfernt markiert; `vendor/contao/core-bundle/contao/pages/PageRegular.php` ruft den `generatePage`-Hook mit `PageModel`, `LayoutModel` und `PageRegular` auf. |
 | Turbo im Core | teilweise | `vendor/contao/core-bundle/src/ContaoCoreBundle.php` registriert das Format `turbo_stream`; `vendor/contao/core-bundle/assets/backend.js` bindet Turbo für das Backend ein. Eine automatische Turbo-Einbindung für das Frontend wurde in den Core-Sourcen nicht gefunden. |
 | Backend-Modulregistrierung | ja | `vendor/contao/core-bundle/contao/config/config.php` registriert Backend-Bereiche und -Module über `$GLOBALS['BE_MOD']` mit einer `tables`-Liste. Das Bundle verwendet denselben Mechanismus in `contao/config/config.php`. |
 | Alias und Toggle im DCA | ja | `vendor/contao/core-bundle/src/Slug/Slug.php` stellt `generate(string, int\|iterable, ?callable, string)` bereit; `vendor/contao/core-bundle/src/EventListener/DataContainer/DefaultOperationsListener.php` erzeugt bei genau einem Feld mit `toggle = true` die Standard-Toggle-Operation. |
@@ -47,25 +50,75 @@ zuständigen Symfony- und Contao-Manager-Quellen genannt.
   Frontend wurde nicht gefunden. Verifiziert ist nur das registrierte
   `turbo_stream`-Format.
 
-## D1 – Content Composition (Entscheidung in Phase 4)
+## D1 – Content Composition (entschieden)
 
-Die Draft-API ist in 5.7.11 vorhanden: Auf
-`ContentComposition::createContentCompositionBuilder(PageModel)` folgt
-`ContentCompositionBuilder::buildLayoutTemplate()`. Der Hauptinhalt kann mit
-`LayoutTemplate::setSlot('main', $content)` als `string` oder `Stringable`
-gesetzt und mit `getResponse()` ausgegeben werden. Ein Fallback ist für die
-aktuell geprüfte Version nicht wegen einer fehlenden API erforderlich. Der in
-SPEC.md §6.2 vorgeschriebene Legacy-Fallback für klassische Layouts bleibt
-davon unberührt. Die endgültige Einbindung wird wegen des
-`@experimental`-Status in Phase 4 entschieden und im Page Controller gekapselt.
+Der Seitentyp wird mit `contentComposition = false` registriert. Der Schalter
+steuert über `PageRegistry::supportsContentComposition()` die Artikeloperation
+und automatische Artikelanlage im Backend; er wird weder von
+`ContentComposition::createContentCompositionBuilder()` noch von
+`ContentCompositionBuilder::buildLayoutTemplate()` ausgewertet. Damit kann der
+Controller weiterhin das Layout samt Slots aufbauen, während Redakteure der
+Bühnenseite keine später überschriebenen Artikel zuweisen können.
 
-## D2 – Turbo-Bereitstellung (Entscheidung in Phase 4)
+Bei einem modernen Layout verwendet `QnaStageController` ausschließlich diese
+in Contao 5.7.11 verifizierte Kette:
 
-Der Core liefert Turbo nur im Backend automatisch aus. Der verifizierte
-Bundle-Mechanismus für eigene Frontend-Dateien ist `public/` plus das vom Core
-registrierte Asset-Paket. Ob das Bundle eine gepinnte Turbo-Version mitliefert
-oder sie dokumentiert voraussetzt, wird in Phase 4 entschieden; es wurde in
-dieser Phase kein Frontend-Asset hinzugefügt.
+* `vendor/contao/core-bundle/src/ContentComposition/ContentComposition.php`:
+  `createContentCompositionBuilder(PageModel): ContentCompositionBuilder`;
+  Service-ID und Klassenalias stehen in
+  `vendor/contao/core-bundle/config/services.yaml` als
+  `contao.content_composition` bzw.
+  `Contao\CoreBundle\ContentComposition\ContentComposition`.
+* `vendor/contao/core-bundle/src/ContentComposition/ContentCompositionBuilder.php`:
+  `buildLayoutTemplate(): LayoutTemplate`. Dieselbe Methode prüft
+  `layout->type` und wirft bei einem Wert ungleich `modern` eine
+  `LogicException`. Da `LayoutModel` bereits vor dem Builder verfügbar ist,
+  verzweigt der Controller vor diesem Aufruf.
+* `vendor/contao/core-bundle/src/Twig/LayoutTemplate.php`:
+  `setSlot(string, Stringable|string): void` und
+  `getResponse(?Response = null): Response`. Der gerenderte Twig-String wird
+  daher direkt in den Slot `main` gesetzt.
+
+Die komplette experimentelle API ist in genau dieser Controllerklasse
+gekapselt. Für ein Layout mit `type = default` registriert dieselbe Klasse
+temporär den `generatePage`-Hook, ruft das in
+`vendor/contao/core-bundle/contao/controllers/FrontendIndex.php` verifizierte
+`renderPage(PageModel): Response` auf und setzt im Hook `Template->main`. Ein
+`finally`-Block stellt den vorherigen Hookwert wieder her bzw. entfernt den
+Bundle-Hook. Dieser Weg ist notwendig, aber `FrontendIndex::renderPage()` ist
+in 5.7 bereits für die Entfernung in Contao 6 markiert.
+
+Der eigene Parameter heißt `alias`; `auto_item` wird nicht verwendet. Der
+Compiler in `PageRouteCompiler.php` löst mit Root-Suffix beide eingehenden
+Formen korrekt auf. In der realen Integrationsumgebung wurden
+`/codex-qna-modern-stage.html` und
+`/codex-qna-modern-stage/codex-open-session.html` sowie dieselben Formen mit
+klassischem Layout nach der Umstellung auf `false` erfolgreich gerendert.
+
+Eine bekannte 5.7.11-Einschränkung bleibt: Der Symfony-Generator kann den
+optionalen Parameter vor `.html` nicht leer erzeugen. Auch die geprüfte
+Alternative `ContentUrlGenerator::generate($pageModel)` scheitert real: Sie
+kompiliert in `vendor/contao/core-bundle/src/Routing/ContentUrlGenerator.php`
+dieselbe PageRoute und endete für die Testseite in einer
+`RouteParametersException`, deren vorherige `InvalidParameterException` den
+leeren Wert für `alias` gegen `[^/]++` ausweist. Deshalb erzeugt das Bundle nur
+Detail-Links mit nicht leerem Alias und keinen künstlichen Zurück-/Self-Link zur
+Übersicht. Die Übersichtsroute selbst löst sauber auf.
+
+## D2 – Turbo-Bereitstellung (entschieden)
+
+Das Bundle liefert Turbo 8.0.23 als gepinntes ES-Modul
+`public/turbo.es2017-esm.js` samt MIT-Lizenz mit. SHA-256 des ausgelieferten
+Artefakts:
+`b9d35d123a07614f55eaaf993f74d687a503ae41ba50ef835aafa18dbb265a13`.
+Das kleine Bundle-Modul `public/qna.js` prüft zuerst `window.Turbo`. Nur wenn
+keine Instanz vorhanden ist, importiert es das mitgelieferte Modul dynamisch und
+setzt für diese Instanz `Turbo.session.drive = false`. Eine vorhandene
+Host-Instanz wird weder erneut geladen noch in ihrer Drive-Konfiguration
+verändert. Die Assets werden nur von Q&A-Reader- und
+Bühnen-Detailtemplates eingebunden; die Bühnenübersicht lädt lediglich CSS.
+Das Host-Projekt braucht weder eine Turbo-Abhängigkeit noch einen
+JavaScript-Build.
 
 ## D3 – Löschen von Mitgliederdaten (entschieden)
 
@@ -145,8 +198,23 @@ gebündelten Abfragen sowie Transaktionen und eine gezielte Behandlung des
 Unique-Constraint-Verstoßes, ohne eine zweite Persistenzabstraktion
 einzuführen.
 
-## D7 – Formularantwort (Entscheidung in Phase 4)
+## D7 – Formularantwort (entschieden)
 
-Das MIME-Format `text/vnd.turbo-stream.html` ist registriert, eine besondere
-Frontend-Response-Abstraktion wurde nicht gefunden. Ob erfolgreiche Aktionen
-Turbo Streams oder Post/Redirect/Get verwenden, wird in Phase 4 entschieden.
+Die vier Schreibaktionen verwenden einen Frame-lokalen
+Post/Redirect/Get-Flow: POST mutiert ausschließlich über den jeweiligen
+Service und antwortet mit `303 See Other` auf den passenden HTML-Frame-
+Endpunkt. Turbo folgt dem Redirect innerhalb des absendenden Frames; der
+Server rendert anschließend den vollständigen aktuellen Zustand. Das vermeidet
+eine zweite Turbo-Stream-Variantenmatrix für Reader und Bühne und bleibt bei
+deaktiviertem Turbo Drive robust. Fachliche Ablehnungen liefern denselben
+semantischen Frame mit Fehlermeldung und Status `422 Unprocessable Entity`,
+damit Turbo ihn ersetzt. Fehlende Authentifizierung, fehlende
+Steuerberechtigung und CSRF-Abweisungen behalten ihre harten HTTP-Statuscodes.
+
+Alle sechs Routen liegen durch `config/routes.yaml` im Frontend-Scope. Die
+vier Aktionen akzeptieren nur POST und setzen `_token_check = true`; der in
+`vendor/contao/core-bundle/src/EventListener/RequestTokenListener.php`
+verifizierte Listener prüft dadurch bei zustandsbehafteten bzw.
+authentifizierten Frontend-Requests das Feld `REQUEST_TOKEN`. Start und Stopp
+prüfen zusätzlich `QNA_SESSION_CONTROL` und delegieren ihre Zustandsübergänge
+an `SessionService`.

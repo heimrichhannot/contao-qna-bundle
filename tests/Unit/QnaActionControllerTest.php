@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace HeimrichHannot\QnaBundle\Tests\Unit;
 
 use Contao\CoreBundle\Csrf\ContaoCsrfTokenManager;
+use Contao\FrontendUser;
 use HeimrichHannot\QnaBundle\Controller\QnaActionController;
+use HeimrichHannot\QnaBundle\Dto\QnaQuestion;
 use HeimrichHannot\QnaBundle\Dto\QnaSession;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
 use HeimrichHannot\QnaBundle\Gateway\QnaQuestionGateway;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
+use HeimrichHannot\QnaBundle\Gateway\QnaVoteGateway;
 use HeimrichHannot\QnaBundle\Security\Voter\QnaSessionControlVoter;
 use HeimrichHannot\QnaBundle\Service\FrontendMemberProvider;
 use HeimrichHannot\QnaBundle\Service\QuestionService;
@@ -109,7 +112,7 @@ final class QnaActionControllerTest extends TestCase
 
         $response = $controller->start(7, Request::create('/start?sort=invalid', 'POST'));
 
-        self::assertSame(409, $response->getStatusCode());
+        self::assertSame(422, $response->getStatusCode());
         self::assertStringContainsString('private', $response->headers->get('Cache-Control', ''));
         self::assertStringContainsString('no-store', $response->headers->get('Cache-Control', ''));
     }
@@ -147,6 +150,132 @@ final class QnaActionControllerTest extends TestCase
         self::assertSame('/_qna/stage/7/questions?sort=votes', $response->headers->get('Location'));
         self::assertStringContainsString('private', $response->headers->get('Cache-Control', ''));
         self::assertStringContainsString('no-store', $response->headers->get('Cache-Control', ''));
+    }
+
+    public function testInvalidStopReturnsUnprocessableStageFrame(): void
+    {
+        $session = new QnaSession(7, 'Mobility', 'mobility', true, SessionState::WAITING, null, null);
+        $gateway = $this->createStub(QnaSessionGateway::class);
+        $gateway->method('findPublished')->willReturn($session);
+        $gateway->method('find')->willReturn($session);
+        $security = $this->createStub(Security::class);
+        $security->method('isGranted')->willReturn(true);
+        $questionGateway = $this->createStub(QnaQuestionGateway::class);
+        $responseFactory = $this->createResponseFactory($gateway, $questionGateway, $security, $security);
+        $controller = new QnaActionController(
+            $this->uninitializedQuestionService(),
+            $this->uninitializedVoteService(),
+            new SessionService($gateway, new MockClock('@150')),
+            $gateway,
+            $responseFactory,
+            $security,
+            $this->createUrlGenerator(),
+        );
+
+        $response = $controller->stop(7, Request::create('/stop', 'POST'));
+
+        self::assertSame(422, $response->getStatusCode());
+        self::assertSame('text/html; charset=UTF-8', $response->headers->get('Content-Type'));
+    }
+
+    public function testRejectedQuestionReturnsUnprocessableReaderFrame(): void
+    {
+        $session = new QnaSession(7, 'Mobility', 'mobility', true, SessionState::OPEN, 100, null);
+        $gateway = $this->createStub(QnaSessionGateway::class);
+        $gateway->method('find')->willReturn($session);
+        $gateway->method('findPublished')->willReturn($session);
+        $questionGateway = $this->createStub(QnaQuestionGateway::class);
+        $questionGateway->method('findForSession')->willReturn([]);
+        $memberSecurity = $this->createMemberSecurity(42);
+        $questionService = new QuestionService(
+            $gateway,
+            $questionGateway,
+            new FrontendMemberProvider($memberSecurity),
+            new MockClock('@150'),
+            500,
+            20,
+        );
+        $controller = new QnaActionController(
+            $questionService,
+            $this->uninitializedVoteService(),
+            new SessionService($gateway, new MockClock('@150')),
+            $gateway,
+            $this->createResponseFactory($gateway, $questionGateway, $memberSecurity, $this->createStub(Security::class)),
+            $this->createStub(Security::class),
+            $this->createUrlGenerator(),
+        );
+
+        $response = $controller->question(7, Request::create('/question', 'POST', ['question' => '  ']));
+
+        self::assertSame(422, $response->getStatusCode());
+        self::assertSame('text/html; charset=UTF-8', $response->headers->get('Content-Type'));
+    }
+
+    public function testRejectedVoteReturnsUnprocessableReaderFrame(): void
+    {
+        $session = new QnaSession(7, 'Mobility', 'mobility', true, SessionState::CLOSED, 100, 150);
+        $gateway = $this->createStub(QnaSessionGateway::class);
+        $gateway->method('find')->willReturn($session);
+        $gateway->method('findPublished')->willReturn($session);
+        $questionGateway = $this->createStub(QnaQuestionGateway::class);
+        $questionGateway->method('find')->willReturn(new QnaQuestion(23, 7, 4, 'Question', 110));
+        $questionGateway->method('findForSession')->willReturn([]);
+        $voteGateway = $this->createMock(QnaVoteGateway::class);
+        $voteGateway->expects(self::never())->method('create');
+        $memberSecurity = $this->createMemberSecurity(42);
+        $voteService = new VoteService(
+            $gateway,
+            $questionGateway,
+            $voteGateway,
+            new FrontendMemberProvider($memberSecurity),
+            new MockClock('@150'),
+        );
+        $controller = new QnaActionController(
+            $this->uninitializedQuestionService(),
+            $voteService,
+            new SessionService($gateway, new MockClock('@150')),
+            $gateway,
+            $this->createResponseFactory($gateway, $questionGateway, $memberSecurity, $this->createStub(Security::class)),
+            $this->createStub(Security::class),
+            $this->createUrlGenerator(),
+        );
+
+        $response = $controller->vote(7, 23);
+
+        self::assertSame(422, $response->getStatusCode());
+        self::assertSame('text/html; charset=UTF-8', $response->headers->get('Content-Type'));
+    }
+
+    public function testMissingAuthenticationKeepsUnauthorizedStatus(): void
+    {
+        $session = new QnaSession(7, 'Mobility', 'mobility', true, SessionState::OPEN, 100, null);
+        $gateway = $this->createStub(QnaSessionGateway::class);
+        $gateway->method('find')->willReturn($session);
+        $gateway->method('findPublished')->willReturn($session);
+        $questionGateway = $this->createStub(QnaQuestionGateway::class);
+        $questionGateway->method('findForSession')->willReturn([]);
+        $memberSecurity = $this->createMemberSecurity(null);
+        $questionService = new QuestionService(
+            $gateway,
+            $questionGateway,
+            new FrontendMemberProvider($memberSecurity),
+            new MockClock('@150'),
+            500,
+            20,
+        );
+        $controller = new QnaActionController(
+            $questionService,
+            $this->uninitializedVoteService(),
+            new SessionService($gateway, new MockClock('@150')),
+            $gateway,
+            $this->createResponseFactory($gateway, $questionGateway, $memberSecurity, $this->createStub(Security::class)),
+            $this->createStub(Security::class),
+            $this->createUrlGenerator(),
+        );
+
+        $response = $controller->question(7, Request::create('/question', 'POST', ['question' => 'Question']));
+
+        self::assertSame(401, $response->getStatusCode());
     }
 
     public function testStartRejectsMissingControlPermissionBeforeMutation(): void
@@ -188,5 +317,53 @@ final class QnaActionControllerTest extends TestCase
     private function uninitializedResponseFactory(): QnaFrameResponseFactory
     {
         return (new \ReflectionClass(QnaFrameResponseFactory::class))->newInstanceWithoutConstructor();
+    }
+
+    private function createMemberSecurity(?int $memberId): Security
+    {
+        $security = $this->createStub(Security::class);
+
+        if (null === $memberId) {
+            $security->method('getUser')->willReturn(null);
+
+            return $security;
+        }
+
+        $member = $this->createStub(FrontendUser::class);
+        $member->method('__get')->willReturn($memberId);
+        $security->method('getUser')->willReturn($member);
+
+        return $security;
+    }
+
+    private function createResponseFactory(
+        QnaSessionGateway $sessionGateway,
+        QnaQuestionGateway $questionGateway,
+        Security $memberSecurity,
+        Security $controlSecurity,
+    ): QnaFrameResponseFactory {
+        $twig = $this->createStub(Environment::class);
+        $twig->method('render')->willReturn('<turbo-frame></turbo-frame>');
+
+        return new QnaFrameResponseFactory(
+            $twig,
+            $sessionGateway,
+            $questionGateway,
+            new FrontendMemberProvider($memberSecurity),
+            new QnaReaderViewFactory(),
+            $this->createStub(ContaoCsrfTokenManager::class),
+            $this->createUrlGenerator(),
+            $controlSecurity,
+            2500,
+            500,
+        );
+    }
+
+    private function createUrlGenerator(): UrlGeneratorInterface
+    {
+        $urlGenerator = $this->createStub(UrlGeneratorInterface::class);
+        $urlGenerator->method('generate')->willReturn('/frame');
+
+        return $urlGenerator;
     }
 }

@@ -3,6 +3,7 @@ services:
         autoconfigure: true
         autowire: true
         bind:
+            $pollingInterval: '%contao_qna.polling_interval%'
             $maxQuestionLength: '%contao_qna.max_question_length%'
             $questionCooldown: '%contao_qna.question_cooldown%'
 

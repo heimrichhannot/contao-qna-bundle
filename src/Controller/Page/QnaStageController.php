@@ -25,7 +25,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Twig\Environment;
 
-#[AsPage(type: 'qna_stage', path: '{alias}', defaults: ['alias' => ''])]
+#[AsPage(type: 'qna_stage', path: '{alias}', defaults: ['alias' => ''], contentComposition: false)]
 class QnaStageController extends AbstractPageController
 {
     /** @var array{alias: string, sort: string}|null */
