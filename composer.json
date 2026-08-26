@@ -5,6 +5,7 @@
     "license": "LGPL-3.0-or-later",
     "require": {
         "php": "^8.4",
+        "contao/core-bundle": "^5.7",
         "contao/manager-plugin": "^2.3",
         "doctrine/dbal": "^3.8 || ^4.0",
         "psr/clock": "^1.0",
@@ -20,7 +21,6 @@
         "twig/twig": "^3.21"
     },
     "require-dev": {
-        "contao/core-bundle": "^5.7",
         "friendsofphp/php-cs-fixer": "^3.85",
         "phpstan/phpstan": "^2.1",
         "phpstan/phpstan-symfony": "^2.0",
