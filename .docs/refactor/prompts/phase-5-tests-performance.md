@@ -61,10 +61,11 @@ Fehlerpräzedenz sind totes Gewicht.
    wurde das über einen separaten Root-Zugang gelöst
    (`QNA_TEST_OBSERVER_USER` / `QNA_TEST_OBSERVER_PASSWORD`). Bilde dasselbe in
    CI ab, sonst laufen die Nebenläufigkeitstests dort anders als lokal — oder
-   schlimmer: sie überspringen sich still. Die Tabellen müssen vor dem Lauf existieren
-   — kläre, wie das Schema in CI entsteht (Contao-Migration gegen eine
-   Minimalinstallation oder ein Schema-Dump im Test-Setup) und dokumentiere den
-   gewählten Weg.
+   schlimmer: sie überspringen sich still.
+
+   Die Tabellen müssen vor dem Lauf existieren — kläre, wie das Schema in CI
+   entsteht (Contao-Migration gegen eine Minimalinstallation oder ein
+   Schema-Dump im Test-Setup) und dokumentiere den gewählten Weg.
 
 3. Prüfe, dass ein **fehlschlagender** Integrationstest die Pipeline tatsächlich
    rot färbt. Ein Test, der nur `markTestSkipped()` erreicht, ist kein Netz.

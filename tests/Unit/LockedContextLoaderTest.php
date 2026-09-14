@@ -8,6 +8,7 @@ use HeimrichHannot\QnaBundle\Dto\QnaQuestion;
 use HeimrichHannot\QnaBundle\Dto\QnaSession;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
 use HeimrichHannot\QnaBundle\Exception\QuestionNotFoundException;
+use HeimrichHannot\QnaBundle\Exception\SessionNotFoundException;
 use HeimrichHannot\QnaBundle\Exception\SessionNotOpenException;
 use HeimrichHannot\QnaBundle\Gateway\LockedContextLoader;
 use HeimrichHannot\QnaBundle\Gateway\QnaQuestionGateway;
@@ -29,6 +30,11 @@ final class LockedContextLoaderTest extends TestCase
             self::session(),
             new QnaQuestion(23, 8, 1, 'Question', 100),
             QuestionNotFoundException::class,
+        ];
+        yield 'missing session is rejected after question validation' => [
+            null,
+            new QnaQuestion(23, 7, 1, 'Question', 100),
+            SessionNotFoundException::class,
         ];
         yield 'closed session is rejected after question validation' => [
             self::session(SessionState::CLOSED),
