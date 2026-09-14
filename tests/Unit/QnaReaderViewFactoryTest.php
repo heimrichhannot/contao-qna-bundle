@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace HeimrichHannot\QnaBundle\Tests\Unit;
 
+use HeimrichHannot\QnaBundle\Domain\Session;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
-use HeimrichHannot\QnaBundle\Model\Session;
 use HeimrichHannot\QnaBundle\View\ReaderViewFactory;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;

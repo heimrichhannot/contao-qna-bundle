@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace HeimrichHannot\QnaBundle\View\Model;
 
-use HeimrichHannot\QnaBundle\Model\QuestionListItem;
+use HeimrichHannot\QnaBundle\Domain\QuestionListItem;
 
 final readonly class ReaderContext
 {

@@ -6,11 +6,11 @@ namespace HeimrichHannot\QnaBundle\Tests\Unit;
 
 use Contao\CoreBundle\Csrf\ContaoCsrfTokenManager;
 use HeimrichHannot\QnaBundle\Configuration\QnaOptions;
+use HeimrichHannot\QnaBundle\Domain\QuestionListItem;
+use HeimrichHannot\QnaBundle\Domain\Session;
 use HeimrichHannot\QnaBundle\Enum\QuestionSort;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
 use HeimrichHannot\QnaBundle\Gateway\QnaQuestionGateway;
-use HeimrichHannot\QnaBundle\Model\QuestionListItem;
-use HeimrichHannot\QnaBundle\Model\Session;
 use HeimrichHannot\QnaBundle\Service\FrontendMemberProvider;
 use HeimrichHannot\QnaBundle\Service\PollingPolicy;
 use HeimrichHannot\QnaBundle\View\Model\ReaderView;

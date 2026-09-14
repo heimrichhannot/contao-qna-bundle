@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace HeimrichHannot\QnaBundle\View;
 
+use HeimrichHannot\QnaBundle\Domain\QuestionListItem;
+use HeimrichHannot\QnaBundle\Domain\Session;
 use HeimrichHannot\QnaBundle\Enum\QuestionSort;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
 use HeimrichHannot\QnaBundle\Gateway\QnaQuestionGateway;
-use HeimrichHannot\QnaBundle\Model\QuestionListItem;
-use HeimrichHannot\QnaBundle\Model\Session;
 use HeimrichHannot\QnaBundle\View\Model\StageUrlSet;
 use HeimrichHannot\QnaBundle\View\Model\StageView;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace HeimrichHannot\QnaBundle\Model;
+namespace HeimrichHannot\QnaBundle\Domain;
 
-final readonly class Question
+final readonly class QuestionListItem
 {
     public function __construct(
         public int $id,
@@ -12,6 +12,8 @@ final readonly class Question
         public int $memberId,
         public string $question,
         public int $createdAt,
+        public int $voteCount,
+        public bool $hasVoted,
         public bool $answered = false,
     ) {
     }

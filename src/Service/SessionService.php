@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace HeimrichHannot\QnaBundle\Service;
 
 use Doctrine\DBAL\Connection;
+use HeimrichHannot\QnaBundle\Domain\Session;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
 use HeimrichHannot\QnaBundle\Exception\InvalidSessionTransitionException;
 use HeimrichHannot\QnaBundle\Exception\SessionNotFoundException;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
-use HeimrichHannot\QnaBundle\Model\Session;
 use Psr\Clock\ClockInterface;
 
 final readonly class SessionService

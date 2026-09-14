@@ -6,10 +6,10 @@ namespace HeimrichHannot\QnaBundle\Service;
 
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use HeimrichHannot\QnaBundle\Domain\VoteState;
 use HeimrichHannot\QnaBundle\Exception\QuestionAnsweredException;
 use HeimrichHannot\QnaBundle\Gateway\LockedContextLoader;
 use HeimrichHannot\QnaBundle\Gateway\QnaVoteGateway;
-use HeimrichHannot\QnaBundle\Model\VoteState;
 use Psr\Clock\ClockInterface;
 
 final readonly class VoteService

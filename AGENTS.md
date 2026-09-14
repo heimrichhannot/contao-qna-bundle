@@ -12,11 +12,21 @@
   The attribute keeps the registration next to the code it registers.
 - When several listeners share one callback target and their order matters: set an explicit
   `priority` on each attribute instead of relying on declaration order.
+- Do not give your own concepts Contao-reserved names. The class suffix `*Model`
+  and the directory `src/Model/` belong to Contao Active Record classes
+  (`Contao\Model` subclasses registered in `$GLOBALS['TL_MODELS']`). Plain data
+  structures, value objects and domain models that are not Active Record classes
+  belong in `src/Domain/` and carry no `Model` suffix. The same reservation
+  applies to `Entity` (Doctrine ORM) and to `*Controller` outside of
+  `src/Controller/`.
 
 ## Structure
 - `src/EventListener/Cron/`
     Cronjobs
 - `src/EventListener/DataContainer/[Table]/`
     DCA Callback Listener. One Class per Callback. [Table ] is the table name without tl_ prefix and CamelCalse, for example Member for tl_member. Name the classes after the callback name with Listener suffix, for example ConfigOnLoadListener for 'config.onload' or FieldsExampleOptionsListener for 'fields.example.options'
-
-
+- `src/Domain/`
+  Domain models and value objects of the bundle itself: immutable, no database
+  access, no framework base class. Not Contao models.
+- `src/Model/`
+  Contao Active Record classes only. One class per table, named `<Table>Model`, extending `Contao\Model`, registered in `$GLOBALS['TL_MODELS']`.

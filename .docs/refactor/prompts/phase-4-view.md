@@ -43,10 +43,10 @@ Arbeite in dieser Reihenfolge. Jeder Schritt ist einzeln lauffähig.
 
 | heute | künftig |
 | --- | --- |
-| `Dto/QnaSession` | `Model/Session` |
-| `Dto/QnaQuestion` | `Model/Question` |
-| `Dto/QnaQuestionListItem` | `Model/QuestionListItem` |
-| `Dto/QnaVoteState` | `Model/VoteState` |
+| `Dto/QnaSession` | `Domain/Session` |
+| `Dto/QnaQuestion` | `Domain/Question` |
+| `Dto/QnaQuestionListItem` | `Domain/QuestionListItem` |
+| `Dto/QnaVoteState` | `Domain/VoteState` |
 | `Dto/QnaReaderView` | `View/Model/ReaderView` |
 | `Dto/QnaReaderInitialView` | `View/Model/ReaderInitialView` |
 | `Dto/QnaSessionListItemView` | `View/Model/SessionListItemView` |
@@ -55,7 +55,7 @@ Das `Qna`-Präfix entfällt hier mit (B17.6), weil die Klassen ohnehin verschobe
 werden — eine zweite Umbenennungsrunde in Phase 7 wäre unnötiger Lärm.
 
 `Session` behält `assertOpen()`, `assertPublished()` und `withState()`. Es ist
-ein Domänenmodell, kein DTO; genau deshalb wandert es nach `Model/`.
+ein Domänenmodell, kein DTO; genau deshalb wandert es nach `Domain/`.
 
 Falls Phase 1 `LockedQuestionContext` unter `src/Gateway/` abgelegt hat: hier
 ist die Gelegenheit, das zu prüfen. Es darf bleiben — es beschreibt ein

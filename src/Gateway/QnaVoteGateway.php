@@ -6,7 +6,7 @@ namespace HeimrichHannot\QnaBundle\Gateway;
 
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
-use HeimrichHannot\QnaBundle\Model\VoteState;
+use HeimrichHannot\QnaBundle\Domain\VoteState;
 
 class QnaVoteGateway
 {

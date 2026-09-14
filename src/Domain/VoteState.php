@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace HeimrichHannot\QnaBundle\Model;
+namespace HeimrichHannot\QnaBundle\Domain;
 
 final readonly class VoteState
 {

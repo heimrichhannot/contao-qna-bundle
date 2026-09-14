@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace HeimrichHannot\QnaBundle\Model;
+namespace HeimrichHannot\QnaBundle\Domain;
 
 use HeimrichHannot\QnaBundle\Enum\SessionState;
 use HeimrichHannot\QnaBundle\Exception\SessionNotOpenException;

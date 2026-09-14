@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace HeimrichHannot\QnaBundle\Gateway;
 
-use HeimrichHannot\QnaBundle\Model\Question;
-use HeimrichHannot\QnaBundle\Model\Session;
+use HeimrichHannot\QnaBundle\Domain\Question;
+use HeimrichHannot\QnaBundle\Domain\Session;
 
 final readonly class LockedQuestionContext
 {

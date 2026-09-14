@@ -274,8 +274,20 @@ analog zu `QnaReaderViewFactory`.
 `assertPublished()` und `withState()` Domänenverhalten. Die Benennung führt in
 die Irre.
 
-**Zielbild:** `src/Model/` für Domänenmodelle, `src/View/Model/` für
+**Zielbild:** `src/Domain/` für Domänenmodelle, `src/View/Model/` für
 View-Modelle. `Dto/` entfällt.
+
+**Nicht `src/Model/`.** Dieses Verzeichnis und das Klassensuffix `*Model` sind
+in Contao für Active-Record-Klassen belegt (`Contao\Model`-Ableitungen,
+registriert in `$GLOBALS['TL_MODELS']`). Technisch erzwingt das Framework
+keinen Pfad — `Model::getClassFromTable()`
+(`vendor/contao/core-bundle/contao/library/Contao/Model.php:1401`) löst
+ausschließlich über die Registrierung in
+`vendor/contao/core-bundle/contao/config/config.php:467` auf, und der Core legt
+seine eigenen Models unter `contao/models/` ab. Es ist also eine Konvention,
+keine Sperre. Sie greift hier trotzdem: Das Bundle bringt drei eigene Tabellen
+mit, und ein späterer echter `QnaSessionModel` stünde sonst neben einem
+gleichnamigen Objekt ohne jede Active-Record-Semantik. Siehe `AGENTS.md`.
 
 ### B11 — Polling-Konfiguration ist über fünf Dateien verteilt
 

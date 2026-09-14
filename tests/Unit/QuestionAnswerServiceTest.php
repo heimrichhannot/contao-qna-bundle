@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace HeimrichHannot\QnaBundle\Tests\Unit;
 
 use Doctrine\DBAL\Connection;
+use HeimrichHannot\QnaBundle\Domain\Question;
+use HeimrichHannot\QnaBundle\Domain\Session;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
 use HeimrichHannot\QnaBundle\Exception\QuestionNotFoundException;
 use HeimrichHannot\QnaBundle\Exception\SessionNotFoundException;
@@ -13,8 +15,6 @@ use HeimrichHannot\QnaBundle\Exception\SessionNotPublishedException;
 use HeimrichHannot\QnaBundle\Gateway\LockedContextLoader;
 use HeimrichHannot\QnaBundle\Gateway\QnaQuestionGateway;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
-use HeimrichHannot\QnaBundle\Model\Question;
-use HeimrichHannot\QnaBundle\Model\Session;
 use HeimrichHannot\QnaBundle\Service\QuestionAnswerService;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;

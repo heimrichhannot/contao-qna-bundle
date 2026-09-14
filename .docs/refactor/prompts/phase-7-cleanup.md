@@ -140,7 +140,7 @@ Alle Klassen tragen `Qna`, obwohl der Namespace es bereits sagt:
 `HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway`.
 
 **Aufgabe:** Nur dort bereinigen, wo Phase 4 die Klasse ohnehin verschoben hat
-— das ist bereits geschehen (`Model/Session`, `View/Model/ReaderView`, …).
+— das ist bereits geschehen (`Domain/Session`, `View/Model/ReaderView`, …).
 
 Für den Rest (`QnaSessionGateway`, `QnaQuestionGateway`, `QnaVoteGateway`,
 `QnaActionController`, `QnaFrameController`, `QnaSessionControlVoter`,

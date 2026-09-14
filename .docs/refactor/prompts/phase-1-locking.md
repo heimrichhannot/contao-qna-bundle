@@ -65,7 +65,7 @@ Modellen (Session und Frage). Kein Verhalten, keine Gateways darin.
 
 Ort: passend zur bestehenden Struktur. `src/Gateway/` ist vertretbar, weil das
 Objekt ein Ergebnis des Sperrvorgangs ist und kein Domänenmodell. Falls du
-`src/Model/` bevorzugst, beachte, dass Phase 4 (B10) dieses Verzeichnis erst
+`src/Domain/` bevorzugst, beachte, dass Phase 4 (B10) dieses Verzeichnis erst
 anlegt — dann gehört es hierher und wird in Phase 4 mitverschoben.
 
 ### 3. Beide Services umstellen

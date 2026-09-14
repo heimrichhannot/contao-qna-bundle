@@ -6,10 +6,10 @@ namespace HeimrichHannot\QnaBundle\Controller;
 
 use Contao\CoreBundle\Csrf\ContaoCsrfTokenManager;
 use Contao\CoreBundle\Exception\PageNotFoundException;
+use HeimrichHannot\QnaBundle\Domain\Session;
 use HeimrichHannot\QnaBundle\Enum\QuestionSort;
 use HeimrichHannot\QnaBundle\Exception\QnaDomainException;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
-use HeimrichHannot\QnaBundle\Model\Session;
 use HeimrichHannot\QnaBundle\Security\Voter\QnaSessionControlVoter;
 use HeimrichHannot\QnaBundle\Service\PollingPolicy;
 use HeimrichHannot\QnaBundle\Service\QuestionAnswerService;

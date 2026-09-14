@@ -6,7 +6,7 @@ namespace HeimrichHannot\QnaBundle\View;
 
 use Contao\CoreBundle\Routing\ContentUrlGenerator;
 use Contao\PageModel;
-use HeimrichHannot\QnaBundle\Model\Session;
+use HeimrichHannot\QnaBundle\Domain\Session;
 use HeimrichHannot\QnaBundle\View\Model\SessionListItemView;
 
 final readonly class QnaSessionListViewFactory

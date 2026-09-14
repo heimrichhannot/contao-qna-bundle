@@ -6,8 +6,8 @@ namespace HeimrichHannot\QnaBundle\Tests\Unit;
 
 use Contao\CoreBundle\Routing\ContentUrlGenerator;
 use Contao\PageModel;
+use HeimrichHannot\QnaBundle\Domain\Session;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
-use HeimrichHannot\QnaBundle\Model\Session;
 use HeimrichHannot\QnaBundle\View\QnaSessionListViewFactory;
 use PHPUnit\Framework\TestCase;
 

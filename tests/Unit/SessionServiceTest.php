@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace HeimrichHannot\QnaBundle\Tests\Unit;
 
+use HeimrichHannot\QnaBundle\Domain\Session;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
 use HeimrichHannot\QnaBundle\Exception\InvalidSessionTransitionException;
 use HeimrichHannot\QnaBundle\Exception\SessionNotPublishedException;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
-use HeimrichHannot\QnaBundle\Model\Session;
 use HeimrichHannot\QnaBundle\Service\SessionService;
 use PHPUnit\Framework\TestCase;
 use Psr\Clock\ClockInterface;

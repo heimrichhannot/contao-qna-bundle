@@ -6,6 +6,7 @@ namespace HeimrichHannot\QnaBundle\Service;
 
 use Doctrine\DBAL\Connection;
 use HeimrichHannot\QnaBundle\Configuration\QnaOptions;
+use HeimrichHannot\QnaBundle\Domain\Question;
 use HeimrichHannot\QnaBundle\Exception\EmptyQuestionException;
 use HeimrichHannot\QnaBundle\Exception\QuestionCooldownException;
 use HeimrichHannot\QnaBundle\Exception\QuestionTooLongException;
@@ -13,7 +14,6 @@ use HeimrichHannot\QnaBundle\Exception\SessionNotFoundException;
 use HeimrichHannot\QnaBundle\Gateway\QnaQuestionGateway;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
 use HeimrichHannot\QnaBundle\Gateway\QnaVoteGateway;
-use HeimrichHannot\QnaBundle\Model\Question;
 use Psr\Clock\ClockInterface;
 
 final readonly class QuestionService

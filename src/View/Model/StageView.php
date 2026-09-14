@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace HeimrichHannot\QnaBundle\View\Model;
 
-use HeimrichHannot\QnaBundle\Model\QuestionListItem;
-use HeimrichHannot\QnaBundle\Model\Session;
+use HeimrichHannot\QnaBundle\Domain\QuestionListItem;
+use HeimrichHannot\QnaBundle\Domain\Session;
 
 final readonly class StageView
 {

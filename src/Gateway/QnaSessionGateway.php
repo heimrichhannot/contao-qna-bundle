@@ -6,8 +6,8 @@ namespace HeimrichHannot\QnaBundle\Gateway;
 
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
+use HeimrichHannot\QnaBundle\Domain\Session;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
-use HeimrichHannot\QnaBundle\Model\Session;
 
 class QnaSessionGateway
 {

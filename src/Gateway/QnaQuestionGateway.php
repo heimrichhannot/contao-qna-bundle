@@ -6,9 +6,9 @@ namespace HeimrichHannot\QnaBundle\Gateway;
 
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
+use HeimrichHannot\QnaBundle\Domain\Question;
+use HeimrichHannot\QnaBundle\Domain\QuestionListItem;
 use HeimrichHannot\QnaBundle\Enum\QuestionSort;
-use HeimrichHannot\QnaBundle\Model\Question;
-use HeimrichHannot\QnaBundle\Model\QuestionListItem;
 
 class QnaQuestionGateway
 {
