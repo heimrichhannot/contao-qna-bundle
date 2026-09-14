@@ -8,6 +8,29 @@ jobs:
   quality:
     runs-on: ubuntu-latest
 
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_DATABASE: qna_test
+          MARIADB_USER: qna
+          MARIADB_PASSWORD: qna
+          MARIADB_ROOT_PASSWORD: observer
+          MARIADB_ROOT_HOST: '%'
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+
+    env:
+      QNA_TEST_DB_HOST: 127.0.0.1
+      QNA_TEST_DB_NAME: qna_test
+      QNA_TEST_DB_USER: qna
+      QNA_TEST_DB_PASSWORD: qna
+      QNA_TEST_OBSERVER_USER: root
+      QNA_TEST_OBSERVER_PASSWORD: observer
+
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -16,7 +39,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
-          extensions: dom, fileinfo, filter, gd, intl, mbstring, pdo_mysql, simplexml, xml, xmlreader, xmlwriter
+          extensions: dom, fileinfo, filter, gd, intl, mbstring, pdo_mysql, pcntl, posix, simplexml, xml, xmlreader, xmlwriter
           coverage: none
 
       - name: Install the dependencies
@@ -31,5 +54,15 @@ jobs:
       - name: PHPStan
         run: vendor/bin/phpstan analyse --no-progress
 
-      - name: PHPUnit
-        run: vendor/bin/phpunit
+      - name: PHPUnit (unit)
+        run: vendor/bin/phpunit --testsuite 'Q&A Bundle'
+
+      - name: Create integration schema
+        run: php tests/Fixtures/create-schema.php
+        env:
+          QNA_DATABASE_TESTS: '1'
+
+      - name: PHPUnit (integration)
+        run: vendor/bin/phpunit --testsuite Integration --fail-on-skipped
+        env:
+          QNA_DATABASE_TESTS: '1'

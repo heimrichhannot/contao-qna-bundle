@@ -3,9 +3,9 @@
 Lies zuerst `.docs/refactor/REFACTOR.md` §0 vollständig. Die dortigen Regeln
 gelten für diese Phase und werden hier nicht wiederholt.
 
-**Befunde dieser Phase:** B12, B18, B13, B14
+**Befunde dieser Phase:** B12, B18, B13, B14 sowie zwei Nachträge aus Phase 3
 **Verhaltensneutral:** nein — B13 und B14 ändern Schema bzw. Cache-Verhalten
-**Voraussetzung:** Phasen 1-4 sind abgeschlossen und committet.
+**Voraussetzung:** Phasen 1-4 sind abgeschlossen und committet (`ba99a6e`).
 
 ---
 
@@ -17,6 +17,26 @@ Lesepfad optimiert.
 
 Die Reihenfolge innerhalb dieser Phase ist verbindlich. B13 vor B12 zu bauen
 hieße, die Denormalisierung ohne Nebenläufigkeitstests zu bauen.
+
+## Schritt 0 — Nachtrag aus Phase 3
+
+Zwei kleine Dinge sind aus Phase 3 offen und gehören hierher, weil sie beide
+die Integrationssuite betreffen:
+
+1. **`DECISIONS.md`-Eintrag zur Gast-Semantik.** Die Vorlage aus B5 bindet
+   `:memberId > 0`. Vorher hätte der Reader-Pfad für einen Gast
+   (`$memberId ?? 0`) eine Vote-Zeile mit `memberId = 0` als eigenen Vote
+   gewertet, jetzt nicht mehr. Eine Korrektur in die richtige Richtung, aber
+   eine Verhaltensänderung in einer als verhaltensneutral deklarierten Phase —
+   also dokumentieren, nicht verschweigen.
+
+2. **Semantischer Test statt SQL-Text.** `tests/Unit/QnaQuestionGatewayTest.php`
+   sichert den `memberId = 0`-Fall heute über
+   `str_contains($sql, 'MAX(CASE WHEN :memberId > 0 …')`. Mit gemockter
+   `Connection` geht nichts Besseres — die eigentliche Zusage *eine Vote-Zeile
+   mit `memberId = 0` erzeugt kein `hasVoted`* lässt sich nur gegen eine echte
+   Datenbank beweisen. Sobald Schritt 1 steht, gehört genau dieser Test in die
+   Integrationssuite.
 
 ## Schritt 1 — B12: Integrationstests ausführbar machen
 
@@ -142,9 +162,15 @@ Kurze geteilte TTL (1-2 s) **nur** für das Bühnen-Fragment. Reader-Antworten
 bleiben unverändert `private, no-store`; sie enthalten mit `hasVoted` und dem
 CSRF-Token mitgliedsbezogene Daten.
 
-Nach Phase 4 ist `TurboResponseFactory` die einzige Stelle, an der Header
-gesetzt werden. Der Aufrufer entscheidet, welche Politik gilt — nicht die
-Factory anhand einer Heuristik.
+Stand nach Phase 4: `TurboResponseFactory::html()` und `::stream()` setzen
+beide fest `private, no-store` (`src/View/TurboResponseFactory.php:16` und `:24`);
+eine dritte Stelle steht in `QnaActionController` beim Redirect (Zeile 269).
+Die Cache-Politik wird also Parameter der beiden Methoden — der Aufrufer
+entscheidet, nicht die Factory anhand einer Heuristik.
+
+Die Entscheidung fällt in `QnaFrameController::stage()`: Dort liegt bereits
+`$view->showStartButton || $view->showStopButton` vor, also genau das Kriterium,
+das eine steuerbare von einer reinen Zuschauer-Antwort trennt.
 
 ### Die Falle
 
@@ -185,6 +211,9 @@ Performance-Optimierung.
    Zähler. Beleg per `EXPLAIN` vorher/nachher.
 6. Reader-Antworten sind unverändert `private, no-store`. Bühnen-Antworten mit
    Steuerelementen ebenfalls.
+7. Die Gast-Semantik aus Schritt 0 ist in `.docs/build/DECISIONS.md` vermerkt,
+   und der `memberId = 0`-Fall wird gegen eine echte Datenbank geprüft, nicht
+   über `str_contains` auf dem SQL-Text.
 
 ## Checks
 

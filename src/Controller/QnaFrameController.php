@@ -80,14 +80,24 @@ final readonly class QnaFrameController
             $sort,
             $this->security->isGranted(QnaSessionControlVoter::ATTRIBUTE, $session),
         );
-        $requestToken = $view->showStartButton || $view->showStopButton
+        $hasControls = $view->showStartButton || $view->showStopButton;
+        $requestToken = $hasControls
             ? $this->csrfTokenManager->getDefaultTokenValue()
             : null;
         $pollingInterval = $this->pollingPolicy->intervalFor($session->state);
 
-        return $this->acceptsTurboStream($request)
-            ? $this->responseFactory->stream($this->stageViewFactory->renderUpdate($view, $requestToken, $pollingInterval))
-            : $this->responseFactory->html($this->stageViewFactory->renderFrame($view, $requestToken, $pollingInterval));
+        // One second stays below the base polling interval, including after a state change.
+        $cacheControl = !$hasControls && $this->pollingPolicy->baseInterval() > 1000
+            && 0 === $request->cookies->count() && !$request->headers->has('Authorization')
+            ? 'public, max-age=0, s-maxage=1, must-revalidate'
+            : 'private, no-store';
+        $response = $this->acceptsTurboStream($request)
+            ? $this->responseFactory->stream($this->stageViewFactory->renderUpdate($view, $requestToken, $pollingInterval), cacheControl: $cacheControl)
+            : $this->responseFactory->html($this->stageViewFactory->renderFrame($view, $requestToken, $pollingInterval), cacheControl: $cacheControl);
+        // A cached spectator response must not mask authenticated controls or another representation/locale.
+        $response->setVary(['Accept', 'Accept-Language', 'Cookie', 'Authorization'], false);
+
+        return $response;
     }
 
     private function requirePublishedSession(int $sessionId): Session

@@ -31,6 +31,13 @@ class QnaVoteGateway
                 'tstamp' => ParameterType::INTEGER,
             ],
         );
+        // Both write services hold the session lock and wrap this call in their transaction.
+        // A duplicate insert throws before the cached count can change.
+        $this->connection->executeStatement(
+            'UPDATE tl_qna_question SET voteCount = voteCount + 1 WHERE id = ?',
+            [$questionId],
+            [ParameterType::INTEGER],
+        );
     }
 
     /** A locking read returns current state even inside an older repeatable-read snapshot. */
@@ -59,6 +66,16 @@ class QnaVoteGateway
 
     public function deleteByMemberIdOrQuestionAuthor(int $memberId): void
     {
+        // MemberDataEraser holds all session locks; the unique vote key permits one decrement per question.
+        $this->connection->executeStatement(
+            <<<'SQL'
+                UPDATE tl_qna_question q
+                INNER JOIN tl_qna_vote v ON v.pid = q.id AND v.memberId = :memberId
+                SET q.voteCount = CASE WHEN q.voteCount > 0 THEN q.voteCount - 1 ELSE 0 END
+                SQL,
+            ['memberId' => $memberId],
+            ['memberId' => ParameterType::INTEGER],
+        );
         $this->connection->executeStatement(
             <<<'SQL'
                 DELETE FROM tl_qna_vote

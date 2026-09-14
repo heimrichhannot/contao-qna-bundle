@@ -102,7 +102,7 @@ Twig. The tables are:
 - `tl_qna_session`: title, unique alias, publication flag, state
   (`waiting`, `open`, `closed`) and start/end timestamps.
 - `tl_qna_question`: parent session, author member ID, question text and
-  creation timestamp.
+  creation timestamp and a recoverable `voteCount` cache.
 - `tl_qna_vote`: parent question, member ID and creation timestamp. A unique
   database index on `(pid, memberId)` makes one vote per member and question
   an invariant. Duplicate inserts are also handled idempotently by the vote
@@ -140,7 +140,15 @@ reloads morph elements with stable IDs, protecting vote and sort interactions
 that overlap an already running request. Sorting by votes or time is performed
 in the database, and the selected sort remains in the frame URL.
 
-Every frame and action response uses `Cache-Control: private, no-store`. The
+Reader frames, action responses and stage frames containing controls use
+`Cache-Control: private, no-store`. Cookie-free spectator stage fragments without
+an Authorization header allow one second of shared caching, below the default
+2.5-second polling interval (`public, max-age=0, s-maxage=1, must-revalidate`).
+They vary by Accept, Accept-Language, Cookie and Authorization. Polling intervals
+of one second or less disable shared caching. Contao may additionally make
+responses private when a session or response cookie is present.
+
+The
 reader shell and stage detail shell are cache-neutral and contain no member
 state, token, live question data or current session state. The stage overview
 is private because it contains current states. Frame routes deliberately do
@@ -326,7 +334,7 @@ From a configured DDEV project directory (locally, `contao0507.contao`):
 ddev exec -d /path/to/contao-qna-bundle env \
   QNA_DATABASE_TESTS=1 \
   QNA_TEST_OBSERVER_USER=root QNA_TEST_OBSERVER_PASSWORD=root \
-  vendor/bin/phpunit tests/Integration
+  vendor/bin/phpunit --testsuite Integration --fail-on-skipped
 ```
 
 The bundle path must be accessible inside that container. Outside DDEV, run the
@@ -343,3 +351,19 @@ before/after submission, voting, answering and unanswering; both answer/vote
 orderings; concurrent duplicate votes; start versus submission; backend
 unpublication orderings; and a real unique-constraint failure during automatic
 author-vote insertion, proving rollback of both the question and vote.
+
+
+CI runs the named unit and integration suites separately, supplies MariaDB 10.11
+and builds the three InnoDB tables from the DCA definitions using
+`QNA_DATABASE_TESTS=1 php tests/Fixtures/create-schema.php`. This bootstrap only
+creates tables and must target an empty disposable database. Without the opt-in
+variable the integration suite skips; CI treats any skipped integration test as
+a failure. The root observer credentials are separate from the application user.
+
+Votes update the cached question count in the same transaction as their insert;
+duplicate votes do not increment it. Member erasure adjusts the affected counts.
+`RebuildVoteCountMigration` adds/backfills the column on upgrade and repairs
+mismatches on later Contao migration runs. Direct SQL changes must either maintain
+this cache or be followed by the migration. Integration tests cover counter
+consistency after duplicate votes, erasure, question removal and migration repair,
+including concurrent erasure/voting and guest votes with member ID zero.

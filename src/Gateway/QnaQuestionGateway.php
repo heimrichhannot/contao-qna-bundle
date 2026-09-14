@@ -20,12 +20,11 @@ class QnaQuestionGateway
             q.question,
             q.createdAt,
             q.answered,
-            COUNT(v.id) AS voteCount,
-            MAX(CASE WHEN :memberId > 0 AND v.memberId = :memberId THEN 1 ELSE 0 END) AS hasVoted
+            q.voteCount,
+            CASE WHEN v.id IS NOT NULL THEN 1 ELSE 0 END AS hasVoted
         FROM tl_qna_question q
-        LEFT JOIN tl_qna_vote v ON v.pid = q.id
+        LEFT JOIN tl_qna_vote v ON v.pid = q.id AND :memberId > 0 AND v.memberId = :memberId
         WHERE q.pid = :sessionId
-        GROUP BY q.id, q.pid, q.memberId, q.question, q.createdAt, q.answered
         ORDER BY %s
         SQL;
 

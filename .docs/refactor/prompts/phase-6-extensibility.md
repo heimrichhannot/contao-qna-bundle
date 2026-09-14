@@ -5,7 +5,10 @@ gelten für diese Phase und werden hier nicht wiederholt.
 
 **Befunde dieser Phase:** B15, B16
 **Verhaltensneutral:** nein — B16 entfernt oder isoliert einen Renderpfad
-**Voraussetzung:** Phasen 1-5 sind abgeschlossen und committet.
+**Voraussetzung:** Phasen 1-5 sind abgeschlossen. Achtung: Phase 5 liegt
+uncommitted im Arbeitsverzeichnis (letzter Commit `ba99a6e`). Committe sie nach
+§0.6 zuerst, bevor du hier anfängst — sonst vermischen sich zwei Phasen in einem
+Diff.
 
 ---
 
@@ -52,12 +55,24 @@ in einer offenen Transaktion — er sieht ungeschriebenen Zustand, verlängert d
 Sperre, und ein Fehler in ihm rollt die fachliche Operation zurück. Das ist
 genau die Art Fehler, die erst unter Last auffällt.
 
-Konkret: `transactional()` gibt bereits das Ergebnis zurück
-(`QnaQuestion` bzw. `QnaSession`). Dispatche danach, im äußeren Methodenrumpf.
+Konkret: `transactional()` gibt bereits das Ergebnis zurück — seit Phase 4
+`Domain\Question` (`src/Service/QuestionService.php:34`, `return` in Zeile 62)
+bzw. `Domain\Session` (`SessionService.php:26` und `:47`, `withState()` in
+Zeile 41 und 62). Dispatche danach, im äußeren Methodenrumpf.
+
+Im Bundle existiert bisher **kein** `EventDispatcherInterface` als Abhängigkeit;
+der einzige Treffer auf „EventDispatcher" ist das `#[AsEventListener]`-Attribut
+in `CloseAccountEventListener`. Du führst die Abhängigkeit also neu ein.
 
 Prüfe, ob Contao/Symfony in dieser Version einen fertigen
 Nach-Commit-Mechanismus bietet, bevor du selbst einen baust — und belege das
 Ergebnis nach §0.2 mit einem `vendor/`-Pfad.
+
+### Namensgebung
+
+Die Events liegen unter `src/Event/` und tragen **kein** `Qna`-Präfix — der
+Namespace sagt es bereits (siehe B17.6 und `AGENTS.md`). Ebenso wenig ein
+`Model`-Bezug: Nutzlast sind die `Domain\*`-Objekte.
 
 ### Nicht bauen
 
@@ -78,10 +93,11 @@ Erweiterungspunkt, den niemand findet, ist keiner.
 
 ### Ausgangslage
 
-`src/Controller/Page/QnaStageController.php:104-137` verbiegt zur Laufzeit
-`$GLOBALS['TL_HOOKS']['generatePage']` und legt die Renderargumente in
-`private ?array $legacyArguments` ab — veränderlicher Zustand auf einem
-geteilten Service (Zeile 32).
+`src/Controller/Page/QnaStageController.php:113-144` verbiegt zur Laufzeit
+`$GLOBALS['TL_HOOKS']['generatePage']` (gesetzt in Zeile 121, Helfer in 197-220)
+und legt die Renderargumente in `private ?array $legacyArguments` ab —
+veränderlicher Zustand auf einem geteilten Service (Zeile 34, gesetzt in 120,
+gelesen in 88, zurückgesetzt in 133).
 
 Drei Probleme:
 
@@ -122,9 +138,11 @@ gehört so in `DECISIONS.md`.
 ### Zusatz
 
 Unabhängig von der Variante: `QnaStageController::getContent()` (Zeilen
-147-180) baut die Übersichts-Arrays inline zusammen und dupliziert, wofür
-`QnaSessionListViewFactory` existiert. Nach Phase 4 ist der richtige Ort dafür
-eine View-Factory. Zieh das hier nach.
+149-182) baut die Übersichts-Arrays inline zusammen und dupliziert, wofür
+`QnaSessionListViewFactory` (`src/View/QnaSessionListViewFactory.php`) existiert.
+Nach Phase 4 ist der richtige Ort dafür eine View-Factory mit typisiertem
+Rückgabewert unter `src/View/Model/` — halte dich an das Muster von
+`StageViewFactory`/`StageView`. Zieh das hier nach.
 
 ## Akzeptanzkriterien
 
@@ -139,7 +157,11 @@ eine View-Factory. Zieh das hier nach.
 5. Die drei Events sind im README dokumentiert.
 6. `.docs/build/DECISIONS.md` enthält je einen Eintrag zu Variante A/B und zur
    Nach-Commit-Position der Events, jeweils mit `vendor/`-Beleg, wo eine
-   Contao- oder Symfony-API im Spiel ist.
+   Contao- oder Symfony-API im Spiel ist. Die bisherigen Einträge reichen bis
+   `D11` (Phase 5); nummeriere fortlaufend weiter.
+7. Der Integrationslauf braucht weiterhin den separaten Root-Observer
+   (`QNA_TEST_OBSERVER_USER` / `QNA_TEST_OBSERVER_PASSWORD`) — das ist kein
+   Fehler deiner Änderung, sondern das `PROCESS`-Recht aus Phase 1/5.
 
 ## Checks
 
@@ -147,7 +169,8 @@ eine View-Factory. Zieh das hier nach.
 vendor/bin/php-cs-fixer check --diff --sequential
 vendor/bin/phpstan analyse --no-progress
 vendor/bin/phpunit
-QNA_DATABASE_TESTS=1 vendor/bin/phpunit --testsuite Integration
+QNA_DATABASE_TESTS=1 QNA_TEST_OBSERVER_USER=root QNA_TEST_OBSERVER_PASSWORD=root \
+  vendor/bin/phpunit --testsuite Integration --fail-on-skipped
 ddev exec vendor/bin/contao-console cache:clear
 ```
 

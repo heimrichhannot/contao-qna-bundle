@@ -57,6 +57,9 @@ $GLOBALS['TL_DCA']['tl_qna_question'] = [
             'search' => true,
             'sql' => ['type' => 'text'],
         ],
+        'voteCount' => [
+            'sql' => ['type' => 'integer', 'unsigned' => true, 'default' => 0],
+        ],
         'answered' => [
             'sql' => ['type' => 'boolean', 'default' => false],
         ],

@@ -154,6 +154,7 @@ Bühne erreichbar sein und Fragen oder Votes entgegennehmen.
 | `pid` | int | → `tl_qna_session.id` |
 | `memberId` | int | → `tl_member.id` |
 | `question` | text | |
+| `voteCount` | unsigned int, Default 0 | wiederherstellbarer Vote-Cache (Refactor Phase 5) |
 | `createdAt` | int | fachlicher Erstellungszeitpunkt |
 
 Indizes: `pid`, `createdAt`, kombinierte Indizes `(pid, createdAt)` und
@@ -231,6 +232,12 @@ per Aggregation im Gateway. Falls sich im Verlauf zeigt, dass eine
 denormalisierte Zählerspalte nötig ist, ist das eine bewusste Entscheidung
 (D4) mit Konsequenzen für Index und Race-Condition-Behandlung — inklusive
 Migration und Dokumentation.
+
+Refactor Phase 5 setzt dies mit `voteCount` um: Die Listen lesen den Zähler
+ohne Vote-Aggregation. `UNIQUE(pid, memberId)` bleibt die Wahrheit; Inkremente
+erfolgen nach erfolgreichem Insert in derselben Transaktion. Mitgliedslöschung
+korrigiert betroffene Zähler; eine Contao-Migration ergänzt und rekonstruiert
+den Cache aus den Votes. Siehe D10 in `DECISIONS.md`.
 
 ---
 

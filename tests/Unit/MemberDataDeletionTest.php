@@ -26,13 +26,15 @@ final class MemberDataDeletionTest extends TestCase
 
         $memberDataEraser->erase(42);
 
-        self::assertCount(4, $statements);
+        self::assertCount(5, $statements);
         self::assertSame('SELECT id FROM tl_qna_session ORDER BY id FOR UPDATE', $statements[0]['sql']);
         self::assertSame('SELECT id FROM tl_qna_question WHERE memberId = ? ORDER BY id FOR UPDATE', $statements[1]['sql']);
         self::assertSame([42], $statements[1]['params']);
-        self::assertStringContainsString('DELETE FROM tl_qna_vote', $statements[2]['sql']);
-        self::assertStringContainsString('DELETE FROM tl_qna_question', $statements[3]['sql']);
+        self::assertStringContainsString('DELETE FROM tl_qna_vote', $statements[3]['sql']);
+        self::assertStringContainsString('DELETE FROM tl_qna_question', $statements[4]['sql']);
+        self::assertStringContainsString('SET q.voteCount', $statements[2]['sql']);
         self::assertSame(['memberId' => 42], $statements[2]['params']);
+        self::assertSame(['memberId' => 42], $statements[4]['params']);
         self::assertSame(['memberId' => 42], $statements[3]['params']);
     }
 
@@ -47,7 +49,7 @@ final class MemberDataDeletionTest extends TestCase
 
         $this->invokeCloseAccountListener($listenerClass, $memberDataEraser, 'close_delete');
 
-        self::assertCount(4, $statements);
+        self::assertCount(5, $statements);
     }
 
     /**

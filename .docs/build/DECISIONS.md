@@ -263,3 +263,84 @@ explizite Zielzustände idempotent. Dieser Service und `VoteService` sperren die
 Frage mit `SELECT ... FOR UPDATE` in einer Transaktion, bevor sie den Status
 prüfen. Die Autorisierung bleibt beim bestehenden `QNA_SESSION_CONTROL`-Voter.
 Bühnenaktionen behalten den privaten 303/Stream-Ablauf und die Sortierung bei.
+
+## D9: Gast-Votes und ausführbare Integrationstests (Refactor Phase 5)
+
+Seit Phase 3 gilt im Reader wie auf der Bühne: Eine Vote-Zeile mit
+`memberId = 0` zählt zur Gesamtzahl, aber für Gäste niemals als eigener Vote
+(`hasVoted = false`). Der frühere Reader hätte diese Zeile als eigenen Vote
+gewertet. Das ist eine bewusste Verhaltenskorrektur der ursprünglich als
+verhaltensneutral bezeichneten Phase 3. Ein echter Datenbanktest ersetzt die
+bisherige SQL-Textprüfung dieses Falls.
+
+CI erstellt in einer leeren MariaDB-10.11-Datenbank die drei Bundle-Tabellen
+über `tests/Fixtures/create-schema.php` aus den Doctrine-Schemadefinitionen der
+DCA-Dateien. Damit gibt es keinen parallel gepflegten SQL-Dump und keine
+vollständige Contao-Installation als Voraussetzung der Service-Tests. Der
+separate Integrationsschritt aktiviert `QNA_DATABASE_TESTS=1` und
+`--fail-on-skipped`; fehlende Extensions oder übersprungene Tests sind Fehler.
+Der Anwendungsbenutzer bleibt unprivilegiert; nur die Observer-Verbindung
+nutzt Root für `information_schema.INNODB_TRX` (PROCESS).
+
+## D10: Wiederherstellbarer Vote-Zähler (Refactor Phase 5)
+
+`tl_qna_question.voteCount` ist ein unsigned Integer mit Default 0 in
+Doctrine-Schemarepräsentation. Die Wahrheit bleibt `UNIQUE(pid, memberId)` auf
+`tl_qna_vote`. `QnaVoteGateway::create()` erhöht den Zähler erst nach einem
+erfolgreichen Insert in derselben Service-Transaktion; Duplicate-Votes werfen
+vor dem Inkrement. Das schließt den automatischen Autoren-Vote ein.
+`MemberDataEraser` hält weiterhin zuerst die Session-Sperren; der Vote-Gateway
+verringert betroffene Zähler vor dem Löschen der Votes. Die Sperrreihenfolge
+und die bestehenden Service-Transaktionsgrenzen bleiben unverändert.
+
+`RebuildVoteCountMigration` ergänzt die Spalte vor dem Contao-Schema-Update
+und rekonstruiert sie aus den Vote-Zeilen. Abweichende Zähler aktivieren dieselbe
+Migration erneut; sie ist auch nach der Erstinstallation wiederholbar.
+DDL läuft außerhalb der Reparaturtransaktion (MySQL impliziter Commit), die
+Reparatur selbst unter aufsteigend erworbenen Session-Sperren. Belegte APIs:
+`vendor/contao/core-bundle/src/Migration/AbstractMigration.php`,
+`MigrationResult.php`, `src/DependencyInjection/ContaoCoreExtension.php`
+(Autokonfiguration von `MigrationInterface`) und `src/Command/MigrateCommand.php`
+(Migrationen vor Schema-Abgleich), jeweils im Core-Bundle.
+
+Die Listenabfrage liest `q.voteCount`; `hasVoted` nutzt getrennt einen durch
+`memberId > 0` begrenzten LEFT JOIN auf den eindeutigen Schlüssel `(pid, memberId)`.
+Weder COUNT noch GROUP BY bleiben im Listenpfad. EXPLAIN/ANALYZE mit 50 Fragen
+und je 200 Votes belegt den Gewinn: vorher 50 × 200 gelesene Vote-Zeilen,
+nachher 50 × 1, Zugriff `ref` → `eq_ref`, ohne temporäre Aggregationstabelle.
+Der aktuelle Vote-State nach Schreiboperationen bleibt ein gesperrter
+COUNT-Lesevorgang; seine Repeatable-Read-Semantik wird nicht verändert.
+
+## D11: Bühnen-Cache und gerenderte Template-Invarianten (Refactor Phase 5)
+
+Die Cache-Politik ist ein expliziter Parameter von `TurboResponseFactory::html()`
+und `::stream()`, Standard weiterhin `private, no-store`. Ausschließlich
+`QnaFrameController::stage()` wählt `public, max-age=0, s-maxage=1, must-revalidate`
+für eine Antwort ohne Start-/Stopp-Steuerung, ohne Request-Cookies und ohne
+Authorization-Header. Die gemeinsame TTL beträgt eine Sekunde, also weniger
+als das normale Polling-Intervall von 2,5 Sekunden. Bei konfigurierten
+Basisintervallen von höchstens einer Sekunde bleibt auch die Bühne privat.
+`max-age=0` hält den Browser zur erneuten Abfrage an; `must-revalidate` erlaubt
+keine veraltete Auslieferung nach Ablauf. Die bestehende Polling-Verzögerung
+ist davon unabhängig; die zusätzliche Cache-Frische beträgt höchstens 1 s.
+
+Bühnenantworten variieren nach `Accept`, `Accept-Language`, `Cookie` und
+`Authorization`. So kann ein geteilter Zuschauer-Cache keine Steuerantwort,
+andere Sprache oder HTML-/Stream-Repräsentation ersetzen. Steuerantworten
+enthalten weiterhin CSRF-Token sowie Start-/Stopp- und ggf. Answer-Formulare
+und bleiben `private, no-store`; ebenso alle Reader- und Aktionsantworten.
+Cookie-basierte Zuschauer werden bewusst nicht geteilt gecacht.
+`vendor/contao/core-bundle/src/EventListener/MakeResponsePrivateListener.php`
+kann öffentliche Antworten zusätzlich privatisieren, z. B. bei Session- oder
+Profiler-Cookies. Diese Schutzlogik wird nicht umgangen.
+
+Der Template-Test rendert die echten Bundle-Twig-Dateien einschließlich ihrer
+Includes und prüft DOM/HTML. Nur die unabhängige Contao-Seitenhülle wird im
+Unit-Test ersetzt; die native `AddTokenParser`-Syntax ist aus
+`vendor/contao/core-bundle/src/Twig/ResponseContext/AddTokenParser.php` verifiziert.
+Ein absichtlich mit Token, Mitgliedsstatus und Vote-Daten angereicherter
+Kontext muss dieselbe neutrale Initialausgabe liefern wie der alternative
+Kontext. Der Cache-Test rendert die realen Stage-/Reader-Views für HTML und
+Streams, Zustände und Steuerberechtigungen. DCA-Palettenstring-Tests bleiben
+bestehen: Die Palette selbst ist ein String; ein Umbau bringt hier keinen
+zusätzlichen Verhaltensnachweis.
