@@ -8,10 +8,11 @@ use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
 use HeimrichHannot\QnaBundle\Dto\QnaQuestion;
 use HeimrichHannot\QnaBundle\Dto\QnaQuestionListItem;
+use HeimrichHannot\QnaBundle\Enum\QuestionSort;
 
 class QnaQuestionGateway
 {
-    private const string LIST_BY_VOTES_SQL = <<<'SQL'
+    private const string LIST_SQL = <<<'SQL'
         SELECT
             q.id,
             q.pid,
@@ -20,63 +21,12 @@ class QnaQuestionGateway
             q.createdAt,
             q.answered,
             COUNT(v.id) AS voteCount,
-            MAX(CASE WHEN v.memberId = :memberId THEN 1 ELSE 0 END) AS hasVoted
+            MAX(CASE WHEN :memberId > 0 AND v.memberId = :memberId THEN 1 ELSE 0 END) AS hasVoted
         FROM tl_qna_question q
         LEFT JOIN tl_qna_vote v ON v.pid = q.id
         WHERE q.pid = :sessionId
         GROUP BY q.id, q.pid, q.memberId, q.question, q.createdAt, q.answered
-        ORDER BY voteCount DESC, q.createdAt ASC
-        SQL;
-
-    private const string LIST_BY_TIME_SQL = <<<'SQL'
-        SELECT
-            q.id,
-            q.pid,
-            q.memberId,
-            q.question,
-            q.createdAt,
-            q.answered,
-            COUNT(v.id) AS voteCount,
-            MAX(CASE WHEN v.memberId = :memberId THEN 1 ELSE 0 END) AS hasVoted
-        FROM tl_qna_question q
-        LEFT JOIN tl_qna_vote v ON v.pid = q.id
-        WHERE q.pid = :sessionId
-        GROUP BY q.id, q.pid, q.memberId, q.question, q.createdAt, q.answered
-        ORDER BY q.createdAt ASC
-        SQL;
-
-    private const string STAGE_LIST_BY_VOTES_SQL = <<<'SQL'
-        SELECT
-            q.id,
-            q.pid,
-            q.memberId,
-            q.question,
-            q.createdAt,
-            q.answered,
-            COUNT(v.id) AS voteCount,
-            0 AS hasVoted
-        FROM tl_qna_question q
-        LEFT JOIN tl_qna_vote v ON v.pid = q.id
-        WHERE q.pid = :sessionId
-        GROUP BY q.id, q.pid, q.memberId, q.question, q.createdAt, q.answered
-        ORDER BY voteCount DESC, q.createdAt ASC
-        SQL;
-
-    private const string STAGE_LIST_BY_TIME_SQL = <<<'SQL'
-        SELECT
-            q.id,
-            q.pid,
-            q.memberId,
-            q.question,
-            q.createdAt,
-            q.answered,
-            COUNT(v.id) AS voteCount,
-            0 AS hasVoted
-        FROM tl_qna_question q
-        LEFT JOIN tl_qna_vote v ON v.pid = q.id
-        WHERE q.pid = :sessionId
-        GROUP BY q.id, q.pid, q.memberId, q.question, q.createdAt, q.answered
-        ORDER BY q.createdAt ASC
+        ORDER BY %s
         SQL;
 
     public function __construct(private readonly Connection $connection)
@@ -99,13 +49,15 @@ class QnaQuestionGateway
             return null;
         }
 
+        $row = new Row($row);
+
         return new QnaQuestion(
-            $this->intValue($row['id'] ?? null, 'id'),
-            $this->intValue($row['pid'] ?? null, 'pid'),
-            $this->intValue($row['memberId'] ?? null, 'memberId'),
-            $this->stringValue($row['question'] ?? null, 'question'),
-            $this->intValue($row['createdAt'] ?? null, 'createdAt'),
-            $this->boolValue($row['answered'] ?? null, 'answered'),
+            $row->int('id'),
+            $row->int('pid'),
+            $row->int('memberId'),
+            $row->string('question'),
+            $row->int('createdAt'),
+            $row->bool('answered'),
         );
     }
 
@@ -134,7 +86,7 @@ class QnaQuestionGateway
 
         return false === $createdAt || null === $createdAt
             ? null
-            : $this->intValue($createdAt, 'createdAt');
+            : (new Row(['createdAt' => $createdAt]))->int('createdAt');
     }
 
     public function create(int $sessionId, int $memberId, string $question, int $createdAt): int
@@ -165,16 +117,12 @@ class QnaQuestionGateway
      *
      * @return list<QnaQuestionListItem>
      */
-    public function findForSession(int $sessionId, int $memberId, string $sort = 'votes'): array
-    {
-        $sql = 'time' === $sort ? self::LIST_BY_TIME_SQL : self::LIST_BY_VOTES_SQL;
-        $rows = $this->connection->fetchAllAssociative(
-            $sql,
-            ['sessionId' => $sessionId, 'memberId' => $memberId],
-            ['sessionId' => ParameterType::INTEGER, 'memberId' => ParameterType::INTEGER],
-        );
-
-        return array_map($this->hydrateListItem(...), $rows);
+    public function findForSession(
+        int $sessionId,
+        int $memberId,
+        QuestionSort $sort = QuestionSort::VOTES,
+    ): array {
+        return $this->findList($sessionId, $memberId, $sort);
     }
 
     /**
@@ -182,16 +130,9 @@ class QnaQuestionGateway
      *
      * @return list<QnaQuestionListItem>
      */
-    public function findForStage(int $sessionId, string $sort = 'votes'): array
+    public function findForStage(int $sessionId, QuestionSort $sort = QuestionSort::VOTES): array
     {
-        $sql = 'time' === $sort ? self::STAGE_LIST_BY_TIME_SQL : self::STAGE_LIST_BY_VOTES_SQL;
-        $rows = $this->connection->fetchAllAssociative(
-            $sql,
-            ['sessionId' => $sessionId],
-            ['sessionId' => ParameterType::INTEGER],
-        );
-
-        return array_map($this->hydrateListItem(...), $rows);
+        return $this->findList($sessionId, null, $sort);
     }
 
     public function deleteByMemberId(int $memberId): void
@@ -203,47 +144,36 @@ class QnaQuestionGateway
         );
     }
 
-    private function intValue(mixed $value, string $column): int
-    {
-        if (!\is_int($value) && !\is_string($value)) {
-            throw new \UnexpectedValueException(\sprintf('Column "%s" is not an integer value.', $column));
-        }
-
-        return (int) $value;
-    }
-
-    private function stringValue(mixed $value, string $column): string
-    {
-        if (!\is_string($value)) {
-            throw new \UnexpectedValueException(\sprintf('Column "%s" is not a string value.', $column));
-        }
-
-        return $value;
-    }
-
-    private function boolValue(mixed $value, string $column): bool
-    {
-        if (!\is_bool($value) && !\is_int($value) && !\is_string($value)) {
-            throw new \UnexpectedValueException(\sprintf('Column "%s" is not a boolean value.', $column));
-        }
-
-        return (bool) $value;
-    }
-
     /**
      * @param array<string, mixed> $row
      */
     private function hydrateListItem(array $row): QnaQuestionListItem
     {
+        $row = new Row($row);
+
         return new QnaQuestionListItem(
-            $this->intValue($row['id'] ?? null, 'id'),
-            $this->intValue($row['pid'] ?? null, 'pid'),
-            $this->intValue($row['memberId'] ?? null, 'memberId'),
-            $this->stringValue($row['question'] ?? null, 'question'),
-            $this->intValue($row['createdAt'] ?? null, 'createdAt'),
-            $this->intValue($row['voteCount'] ?? null, 'voteCount'),
-            $this->boolValue($row['hasVoted'] ?? null, 'hasVoted'),
-            $this->boolValue($row['answered'] ?? null, 'answered'),
+            $row->int('id'),
+            $row->int('pid'),
+            $row->int('memberId'),
+            $row->string('question'),
+            $row->int('createdAt'),
+            $row->int('voteCount'),
+            $row->bool('hasVoted'),
+            $row->bool('answered'),
         );
+    }
+
+    /** @return list<QnaQuestionListItem> */
+    private function findList(int $sessionId, ?int $memberId, QuestionSort $sort): array
+    {
+        // The interpolated ORDER BY fragment is defined by QuestionSort; no request value reaches the SQL template.
+        $sql = \sprintf(self::LIST_SQL, $sort->orderBySql());
+        $rows = $this->connection->fetchAllAssociative(
+            $sql,
+            ['sessionId' => $sessionId, 'memberId' => $memberId ?? 0],
+            ['sessionId' => ParameterType::INTEGER, 'memberId' => ParameterType::INTEGER],
+        );
+
+        return array_map($this->hydrateListItem(...), $rows);
     }
 }

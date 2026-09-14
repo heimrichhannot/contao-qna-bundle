@@ -156,7 +156,8 @@ Bühne erreichbar sein und Fragen oder Votes entgegennehmen.
 | `question` | text | |
 | `createdAt` | int | fachlicher Erstellungszeitpunkt |
 
-Indizes: `pid`, `createdAt`, kombinierter Index `(pid, createdAt)`.
+Indizes: `pid`, `createdAt`, kombinierte Indizes `(pid, createdAt)` und
+`(pid, memberId, createdAt)`.
 
 Kind von `tl_qna_session` über `pid` (siehe Abschnitt 2.4).
 

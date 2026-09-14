@@ -52,18 +52,9 @@ class QnaVoteGateway
             throw new \UnexpectedValueException('The vote-state query did not return a result.');
         }
 
-        $voteCount = $row['voteCount'] ?? null;
-        $hasVoted = $row['hasVoted'] ?? null;
+        $row = new Row($row);
 
-        if (!\is_int($voteCount) && !\is_string($voteCount)) {
-            throw new \UnexpectedValueException('Column "voteCount" is not an integer value.');
-        }
-
-        if (!\is_bool($hasVoted) && !\is_int($hasVoted) && !\is_string($hasVoted)) {
-            throw new \UnexpectedValueException('Column "hasVoted" is not a boolean value.');
-        }
-
-        return new QnaVoteState($questionId, (int) $voteCount, (bool) $hasVoted);
+        return new QnaVoteState($questionId, $row->int('voteCount'), $row->bool('hasVoted'));
     }
 
     public function deleteByMemberIdOrQuestionAuthor(int $memberId): void

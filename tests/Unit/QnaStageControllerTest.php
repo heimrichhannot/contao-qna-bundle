@@ -18,6 +18,7 @@ use Contao\PageModel;
 use Contao\PageRegular;
 use HeimrichHannot\QnaBundle\Controller\Page\QnaStageController;
 use HeimrichHannot\QnaBundle\Dto\QnaSession;
+use HeimrichHannot\QnaBundle\Enum\QuestionSort;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
 use PHPUnit\Framework\TestCase;
@@ -79,7 +80,7 @@ final class QnaStageControllerTest extends TestCase
             2500,
         );
 
-        $response = $controller->renderForTest($page, '', 'votes');
+        $response = $controller->renderForTest($page, '', QuestionSort::VOTES);
 
         self::assertSame('<section>Stage</section>', $response->getContent());
         self::assertTrue($response->headers->hasCacheControlDirective('private'));
@@ -126,7 +127,7 @@ final class QnaStageControllerTest extends TestCase
                 return new Response('<html>Legacy</html>');
             });
 
-        $response = $controller->renderForTest($page, '', 'votes');
+        $response = $controller->renderForTest($page, '', QuestionSort::VOTES);
 
         self::assertSame('<html>Legacy</html>', $response->getContent());
         self::assertTrue($response->headers->hasCacheControlDirective('private'));
@@ -182,7 +183,7 @@ final class QnaStageControllerTest extends TestCase
             2500,
         );
 
-        $response = $controller->renderForTest($page, 'mobility', 'time');
+        $response = $controller->renderForTest($page, 'mobility', QuestionSort::TIME);
 
         self::assertSame('<section>Detail</section>', $response->getContent());
     }
@@ -216,7 +217,7 @@ final class QnaStageControllerTest extends TestCase
         );
 
         $this->expectException(PageNotFoundException::class);
-        $controller->renderForTest($page, 'unknown', 'votes');
+        $controller->renderForTest($page, 'unknown', QuestionSort::VOTES);
     }
 
     private function createPage(): PageModel
@@ -305,7 +306,7 @@ final class ControllerTestFrontendTemplate extends FrontendTemplate
 
 final class TestableQnaStageController extends QnaStageController
 {
-    public function renderForTest(PageModel $pageModel, string $alias, string $sort): Response
+    public function renderForTest(PageModel $pageModel, string $alias, QuestionSort $sort): Response
     {
         return $this->executeRender($pageModel, ['alias' => $alias, 'sort' => $sort]);
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HeimrichHannot\QnaBundle\Controller;
 
+use HeimrichHannot\QnaBundle\Enum\QuestionSort;
 use HeimrichHannot\QnaBundle\View\QnaFrameResponseFactory;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -52,7 +53,7 @@ final readonly class QnaFrameController
     )]
     public function stage(int $sessionId, Request $request): Response
     {
-        $sort = $request->query->getString('sort', 'votes');
+        $sort = QuestionSort::fromRequestValue($request->query->getString('sort'));
 
         return $this->acceptsTurboStream($request)
             ? $this->responseFactory->renderStageUpdate($sessionId, $sort)

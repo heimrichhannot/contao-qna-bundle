@@ -8,6 +8,7 @@ use Contao\CoreBundle\Csrf\ContaoCsrfTokenManager;
 use Contao\CoreBundle\Exception\PageNotFoundException;
 use HeimrichHannot\QnaBundle\Dto\QnaQuestionListItem;
 use HeimrichHannot\QnaBundle\Dto\QnaSession;
+use HeimrichHannot\QnaBundle\Enum\QuestionSort;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
 use HeimrichHannot\QnaBundle\Gateway\QnaQuestionGateway;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
@@ -84,7 +85,7 @@ final readonly class QnaFrameResponseFactory
 
     public function renderStage(
         int $sessionId,
-        string $sort = 'votes',
+        QuestionSort $sort = QuestionSort::VOTES,
         ?string $errorTranslationKey = null,
         int $statusCode = Response::HTTP_OK,
     ): Response {
@@ -99,7 +100,7 @@ final readonly class QnaFrameResponseFactory
         );
     }
 
-    public function renderStageUpdate(int $sessionId, string $sort = 'votes'): Response
+    public function renderStageUpdate(int $sessionId, QuestionSort $sort = QuestionSort::VOTES): Response
     {
         $session = $this->requirePublishedSession($sessionId);
 
@@ -149,15 +150,14 @@ final readonly class QnaFrameResponseFactory
      */
     private function createStageContext(
         QnaSession $session,
-        string $sort,
+        QuestionSort $sort,
         ?string $errorTranslationKey = null,
     ): array {
-        $sort = $this->normalizeSort($sort);
         $showQuestions = SessionState::WAITING !== $session->state;
         $canControl = $this->security->isGranted(QnaSessionControlVoter::ATTRIBUTE, $session);
         $showStartButton = $canControl && SessionState::WAITING === $session->state;
         $showStopButton = $canControl && SessionState::OPEN === $session->state;
-        $routeParameters = ['sessionId' => $session->id, 'sort' => $sort];
+        $routeParameters = ['sessionId' => $session->id, 'sort' => $sort->value];
         $questions = $showQuestions ? $this->questionGateway->findForStage($session->id, $sort) : [];
         $answerUrls = [];
 
@@ -186,14 +186,14 @@ final readonly class QnaFrameResponseFactory
                 ? $this->csrfTokenManager->getDefaultTokenValue()
                 : null,
             'frame_id' => \sprintf('qna-session-%d-stage', $session->id),
-            'sort' => $sort,
+            'sort' => $sort->value,
             'sort_votes_url' => $this->urlGenerator->generate('contao_qna_stage_questions', [
                 'sessionId' => $session->id,
-                'sort' => 'votes',
+                'sort' => QuestionSort::VOTES->value,
             ]),
             'sort_time_url' => $this->urlGenerator->generate('contao_qna_stage_questions', [
                 'sessionId' => $session->id,
-                'sort' => 'time',
+                'sort' => QuestionSort::TIME->value,
             ]),
             'polling_interval' => $this->intervalFor($session->state),
             'error_translation_key' => $errorTranslationKey,
@@ -235,11 +235,6 @@ final readonly class QnaFrameResponseFactory
         return SessionState::OPEN === $state
             ? $this->pollingInterval
             : $this->pollingInterval * self::IDLE_INTERVAL_MULTIPLIER;
-    }
-
-    private function normalizeSort(string $sort): string
-    {
-        return 'time' === $sort ? 'time' : 'votes';
     }
 
     private function createResponse(string $content, int $statusCode): Response

@@ -9,6 +9,7 @@ use Contao\FrontendUser;
 use HeimrichHannot\QnaBundle\Controller\QnaActionController;
 use HeimrichHannot\QnaBundle\Dto\QnaQuestion;
 use HeimrichHannot\QnaBundle\Dto\QnaSession;
+use HeimrichHannot\QnaBundle\Enum\QuestionSort;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
 use HeimrichHannot\QnaBundle\Gateway\LockedContextLoader;
 use HeimrichHannot\QnaBundle\Gateway\QnaQuestionGateway;
@@ -76,7 +77,7 @@ final class QnaActionControllerTest extends TestCase
         $gateway->expects(self::once())->method('find')->with(7)->willReturn($session);
         $gateway->expects(self::never())->method('markOpen');
         $questionGateway = $this->createMock(QnaQuestionGateway::class);
-        $questionGateway->expects(self::once())->method('findForStage')->with(7, 'votes')->willReturn([]);
+        $questionGateway->expects(self::once())->method('findForStage')->with(7, QuestionSort::VOTES)->willReturn([]);
         $security = $this->createMock(Security::class);
         $security->expects(self::exactly(2))->method('isGranted')->willReturn(true);
         $twig = $this->createMock(Environment::class);
@@ -398,7 +399,7 @@ final class QnaActionControllerTest extends TestCase
         $questions = $this->createMock(QnaQuestionGateway::class);
         $questions->method('find')->willReturn(new QnaQuestion(23, 7, 1, 'Question', 100));
         $questions->expects(self::never())->method('setAnswered');
-        $questions->expects(self::once())->method('findForStage')->with(7, 'time')->willReturn([]);
+        $questions->expects(self::once())->method('findForStage')->with(7, QuestionSort::TIME)->willReturn([]);
         $security = $this->createStub(Security::class);
         $security->method('isGranted')->willReturn(true);
         $controller = new QnaActionController(

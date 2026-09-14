@@ -131,46 +131,16 @@ class QnaSessionGateway
      */
     private function hydrate(array $row): QnaSession
     {
+        $row = new Row($row);
+
         return new QnaSession(
-            $this->intValue($row['id'] ?? null, 'id'),
-            $this->stringValue($row['title'] ?? null, 'title'),
-            $this->stringValue($row['alias'] ?? null, 'alias'),
-            $this->boolValue($row['published'] ?? null, 'published'),
-            SessionState::from($this->stringValue($row['state'] ?? null, 'state')),
-            $this->nullableIntValue($row['startedAt'] ?? null, 'startedAt'),
-            $this->nullableIntValue($row['endedAt'] ?? null, 'endedAt'),
+            $row->int('id'),
+            $row->string('title'),
+            $row->string('alias'),
+            $row->bool('published'),
+            SessionState::from($row->string('state')),
+            $row->nullableInt('startedAt'),
+            $row->nullableInt('endedAt'),
         );
-    }
-
-    private function intValue(mixed $value, string $column): int
-    {
-        if (!\is_int($value) && !\is_string($value)) {
-            throw new \UnexpectedValueException(\sprintf('Column "%s" is not an integer value.', $column));
-        }
-
-        return (int) $value;
-    }
-
-    private function nullableIntValue(mixed $value, string $column): ?int
-    {
-        return null === $value ? null : $this->intValue($value, $column);
-    }
-
-    private function stringValue(mixed $value, string $column): string
-    {
-        if (!\is_string($value)) {
-            throw new \UnexpectedValueException(\sprintf('Column "%s" is not a string value.', $column));
-        }
-
-        return $value;
-    }
-
-    private function boolValue(mixed $value, string $column): bool
-    {
-        if (!\is_bool($value) && !\is_int($value) && !\is_string($value)) {
-            throw new \UnexpectedValueException(\sprintf('Column "%s" is not a boolean value.', $column));
-        }
-
-        return (bool) $value;
     }
 }

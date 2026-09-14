@@ -6,6 +6,7 @@ namespace HeimrichHannot\QnaBundle\Controller;
 
 use Contao\CoreBundle\Exception\PageNotFoundException;
 use HeimrichHannot\QnaBundle\Dto\QnaSession;
+use HeimrichHannot\QnaBundle\Enum\QuestionSort;
 use HeimrichHannot\QnaBundle\Exception\QnaDomainException;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
 use HeimrichHannot\QnaBundle\Security\Voter\QnaSessionControlVoter;
@@ -99,7 +100,7 @@ final readonly class QnaActionController
     public function start(int $sessionId, Request $request): Response
     {
         $session = $this->requireControl($sessionId);
-        $sort = $request->query->getString('sort', 'votes');
+        $sort = QuestionSort::fromRequestValue($request->query->getString('sort'));
 
         try {
             $this->sessionService->start($session->id);
@@ -116,7 +117,7 @@ final readonly class QnaActionController
 
         return $this->redirectToRoute('contao_qna_stage_questions', [
             'sessionId' => $session->id,
-            'sort' => $sort,
+            'sort' => $sort->value,
         ]);
     }
 
@@ -130,7 +131,7 @@ final readonly class QnaActionController
     public function stop(int $sessionId, Request $request): Response
     {
         $session = $this->requireControl($sessionId);
-        $sort = $request->query->getString('sort', 'votes');
+        $sort = QuestionSort::fromRequestValue($request->query->getString('sort'));
 
         try {
             $this->sessionService->stop($session->id);
@@ -147,7 +148,7 @@ final readonly class QnaActionController
 
         return $this->redirectToRoute('contao_qna_stage_questions', [
             'sessionId' => $session->id,
-            'sort' => $sort,
+            'sort' => $sort->value,
         ]);
     }
 
@@ -178,7 +179,7 @@ final readonly class QnaActionController
     private function changeAnswered(int $sessionId, int $questionId, bool $answered, Request $request): Response
     {
         $this->requireControl($sessionId);
-        $sort = 'time' === $request->query->getString('sort') ? 'time' : 'votes';
+        $sort = QuestionSort::fromRequestValue($request->query->getString('sort'));
 
         try {
             $this->answerService->setAnswered($sessionId, $questionId, $answered);
@@ -188,7 +189,7 @@ final readonly class QnaActionController
             return $this->responseFactory->renderStage($sessionId, $sort, $exception->translationKey(), $exception->statusCode());
         }
 
-        return $this->redirectToRoute('contao_qna_stage_questions', ['sessionId' => $sessionId, 'sort' => $sort]);
+        return $this->redirectToRoute('contao_qna_stage_questions', ['sessionId' => $sessionId, 'sort' => $sort->value]);
     }
 
     private function requireControl(int $sessionId): QnaSession

@@ -18,6 +18,7 @@ use Contao\LayoutModel;
 use Contao\PageModel;
 use Contao\PageRegular;
 use HeimrichHannot\QnaBundle\Dto\QnaSession;
+use HeimrichHannot\QnaBundle\Enum\QuestionSort;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
 use Symfony\Cmf\Component\Routing\RouteObjectInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -28,7 +29,7 @@ use Twig\Environment;
 #[AsPage(type: 'qna_stage', path: '{alias}', defaults: ['alias' => ''], contentComposition: false)]
 class QnaStageController extends AbstractPageController
 {
-    /** @var array{alias: string, sort: string}|null */
+    /** @var array{alias: string, sort: QuestionSort}|null */
     private ?array $legacyArguments = null;
 
     public function __construct(
@@ -46,12 +47,12 @@ class QnaStageController extends AbstractPageController
     {
         return $this->executeRender($pageModel, [
             'alias' => $alias,
-            'sort' => $this->normalizeSort($request->query->getString('sort', 'votes')),
+            'sort' => QuestionSort::fromRequestValue($request->query->getString('sort')),
         ]);
     }
 
     /**
-     * @param array{alias: string, sort: string} $arguments
+     * @param array{alias: string, sort: QuestionSort} $arguments
      */
     protected function executeRender(PageModel $pageModel, array $arguments): Response
     {
@@ -87,7 +88,7 @@ class QnaStageController extends AbstractPageController
     }
 
     /**
-     * @param array{alias: string, sort: string} $arguments
+     * @param array{alias: string, sort: QuestionSort} $arguments
      */
     private function renderModern(PageModel $pageModel, array $arguments): Response
     {
@@ -106,7 +107,7 @@ class QnaStageController extends AbstractPageController
     }
 
     /**
-     * @param array{alias: string, sort: string} $arguments
+     * @param array{alias: string, sort: QuestionSort} $arguments
      */
     private function renderLegacy(PageModel $pageModel, array $arguments): Response
     {
@@ -142,7 +143,7 @@ class QnaStageController extends AbstractPageController
     }
 
     /**
-     * @param array{alias: string, sort: string} $arguments
+     * @param array{alias: string, sort: QuestionSort} $arguments
      */
     private function getContent(PageModel $pageModel, array $arguments): string
     {
@@ -172,7 +173,7 @@ class QnaStageController extends AbstractPageController
             'frame_id' => \sprintf('qna-session-%d-stage', $session->id),
             'frame_src' => $this->urlGenerator->generate('contao_qna_stage_questions', [
                 'sessionId' => $session->id,
-                'sort' => $arguments['sort'],
+                'sort' => $arguments['sort']->value,
             ]),
             'polling_interval' => $this->pollingInterval,
             'polling_max_interval' => $this->pollingInterval * 16,
@@ -185,11 +186,6 @@ class QnaStageController extends AbstractPageController
             RouteObjectInterface::CONTENT_OBJECT => $pageModel,
             'alias' => $alias,
         ]);
-    }
-
-    private function normalizeSort(string $sort): string
-    {
-        return 'time' === $sort ? 'time' : 'votes';
     }
 
     /**

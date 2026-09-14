@@ -8,6 +8,7 @@ use Contao\CoreBundle\Csrf\ContaoCsrfTokenManager;
 use HeimrichHannot\QnaBundle\Dto\QnaQuestionListItem;
 use HeimrichHannot\QnaBundle\Dto\QnaReaderView;
 use HeimrichHannot\QnaBundle\Dto\QnaSession;
+use HeimrichHannot\QnaBundle\Enum\QuestionSort;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
 use HeimrichHannot\QnaBundle\Gateway\QnaQuestionGateway;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
@@ -162,7 +163,7 @@ final class QnaFrameResponseFactoryTest extends TestCase
         self::assertTrue($context['reset_question_form']);
     }
 
-    public function testStageFrameNormalizesSortAndUsesLongerClosedInterval(): void
+    public function testStageFrameUsesSelectedSortAndLongerClosedInterval(): void
     {
         $session = new QnaSession(7, 'Mobility', 'mobility', true, SessionState::CLOSED, 100, 200);
         $sessionGateway = $this->createMock(QnaSessionGateway::class);
@@ -172,7 +173,7 @@ final class QnaFrameResponseFactoryTest extends TestCase
         $questionGateway = $this->createMock(QnaQuestionGateway::class);
         $questionGateway->expects(self::once())
             ->method('findForStage')
-            ->with(7, 'votes')
+            ->with(7, QuestionSort::VOTES)
             ->willReturn([$question, $answered]);
         $security = $this->createMock(Security::class);
         $security->expects(self::once())->method('isGranted')->willReturn(false);
@@ -200,7 +201,7 @@ final class QnaFrameResponseFactoryTest extends TestCase
             500,
         );
 
-        $response = $factory->renderStage(7, 'invalid');
+        $response = $factory->renderStage(7, QuestionSort::VOTES);
 
         self::assertStringContainsString('private', $response->headers->get('Cache-Control', ''));
         self::assertStringContainsString('no-store', $response->headers->get('Cache-Control', ''));

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace HeimrichHannot\QnaBundle\Tests\Unit;
 
 use Doctrine\DBAL\Connection;
+use HeimrichHannot\QnaBundle\Enum\QuestionSort;
 use HeimrichHannot\QnaBundle\Gateway\QnaQuestionGateway;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -12,18 +13,17 @@ use PHPUnit\Framework\TestCase;
 final class QnaQuestionGatewayTest extends TestCase
 {
     /**
-     * @return iterable<string, array{string, string}>
+     * @return iterable<string, array{QuestionSort, string}>
      */
     public static function sortingProvider(): iterable
     {
-        yield 'votes' => ['votes', 'ORDER BY voteCount DESC, q.createdAt ASC'];
-        yield 'time' => ['time', 'ORDER BY q.createdAt ASC'];
-        yield 'invalid values normalize to votes' => ['anything', 'ORDER BY voteCount DESC, q.createdAt ASC'];
+        yield 'votes' => [QuestionSort::VOTES, 'ORDER BY voteCount DESC, q.createdAt ASC'];
+        yield 'time' => [QuestionSort::TIME, 'ORDER BY q.createdAt ASC'];
     }
 
     #[DataProvider('sortingProvider')]
     public function testQuestionListUsesOneAggregatedQueryWithSpecifiedSorting(
-        string $sort,
+        QuestionSort $sort,
         string $expectedOrder,
     ): void {
         $connection = $this->createMock(Connection::class);
@@ -32,7 +32,7 @@ final class QnaQuestionGatewayTest extends TestCase
             ->with(
                 self::callback(static fn (string $sql): bool => str_contains($sql, 'LEFT JOIN tl_qna_vote')
                     && str_contains($sql, 'COUNT(v.id) AS voteCount')
-                    && str_contains($sql, 'MAX(CASE WHEN v.memberId = :memberId')
+                    && str_contains($sql, 'MAX(CASE WHEN :memberId > 0 AND v.memberId = :memberId')
                     && str_contains($sql, $expectedOrder)),
                 ['sessionId' => 12, 'memberId' => 42],
                 self::anything(),
@@ -59,7 +59,7 @@ final class QnaQuestionGatewayTest extends TestCase
 
     #[DataProvider('sortingProvider')]
     public function testStageSortingUsesAggregationWithoutMemberSpecificState(
-        string $sort,
+        QuestionSort $sort,
         string $expectedOrder,
     ): void {
         $connection = $this->createMock(Connection::class);
@@ -68,9 +68,9 @@ final class QnaQuestionGatewayTest extends TestCase
             ->with(
                 self::callback(static fn (string $sql): bool => str_contains($sql, 'LEFT JOIN tl_qna_vote')
                     && str_contains($sql, 'COUNT(v.id) AS voteCount')
-                    && str_contains($sql, '0 AS hasVoted')
+                    && str_contains($sql, 'MAX(CASE WHEN :memberId > 0 AND v.memberId = :memberId')
                     && str_contains($sql, $expectedOrder)),
-                ['sessionId' => 12],
+                ['sessionId' => 12, 'memberId' => 0],
                 self::anything(),
             )
             ->willReturn([
@@ -91,5 +91,23 @@ final class QnaQuestionGatewayTest extends TestCase
         self::assertCount(1, $items);
         self::assertSame(3, $items[0]->voteCount);
         self::assertFalse($items[0]->hasVoted);
+    }
+
+    public function testStageDoesNotMatchVotesBelongingToMemberZero(): void
+    {
+        $connection = $this->createMock(Connection::class);
+        $connection->expects(self::once())
+            ->method('fetchAllAssociative')
+            ->with(
+                self::callback(static fn (string $sql): bool => str_contains(
+                    $sql,
+                    'CASE WHEN :memberId > 0 AND v.memberId = :memberId THEN 1 ELSE 0 END',
+                )),
+                ['sessionId' => 12, 'memberId' => 0],
+                self::anything(),
+            )
+            ->willReturn([]);
+
+        self::assertSame([], (new QnaQuestionGateway($connection))->findForStage(12));
     }
 }

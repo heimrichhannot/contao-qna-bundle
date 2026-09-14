@@ -21,6 +21,7 @@ $GLOBALS['TL_DCA']['tl_qna_question'] = [
                 'pid' => 'index',
                 'createdAt' => 'index',
                 'pid,createdAt' => 'index',
+                'pid,memberId,createdAt' => 'index',
             ],
         ],
     ],
