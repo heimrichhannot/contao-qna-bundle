@@ -201,6 +201,8 @@ final class QnaActionControllerTest extends TestCase
             new MockClock('@150'),
             500,
             20,
+            $this->createStub(QnaVoteGateway::class),
+            $this->transactionConnection(),
         );
         $urlGenerator = $this->createMock(UrlGeneratorInterface::class);
         $urlGenerator->expects(self::once())
@@ -240,6 +242,8 @@ final class QnaActionControllerTest extends TestCase
             new MockClock('@150'),
             500,
             20,
+            $this->createStub(QnaVoteGateway::class),
+            $this->transactionConnection(),
         );
         $controller = new QnaActionController(
             $questionService,
@@ -311,6 +315,8 @@ final class QnaActionControllerTest extends TestCase
             new MockClock('@150'),
             500,
             20,
+            $this->createStub(QnaVoteGateway::class),
+            $this->transactionConnection(),
         );
         $controller = new QnaActionController(
             $questionService,

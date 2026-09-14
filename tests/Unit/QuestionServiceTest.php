@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace HeimrichHannot\QnaBundle\Tests\Unit;
 
 use Contao\FrontendUser;
+use Doctrine\DBAL\Connection;
 use HeimrichHannot\QnaBundle\Dto\QnaSession;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
 use HeimrichHannot\QnaBundle\Exception\AuthenticationRequiredException;
@@ -15,6 +16,7 @@ use HeimrichHannot\QnaBundle\Exception\SessionNotOpenException;
 use HeimrichHannot\QnaBundle\Exception\SessionNotPublishedException;
 use HeimrichHannot\QnaBundle\Gateway\QnaQuestionGateway;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
+use HeimrichHannot\QnaBundle\Gateway\QnaVoteGateway;
 use HeimrichHannot\QnaBundle\Service\FrontendMemberProvider;
 use HeimrichHannot\QnaBundle\Service\QuestionService;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -36,7 +38,10 @@ final class QuestionServiceTest extends TestCase
             ->with(12, 42, 'How does this work?', 1_700_000_000)
             ->willReturn(99);
 
-        $question = $this->service($sessionGateway, $questionGateway)->create(12, '  How does this work?  ');
+        $votes = $this->createMock(QnaVoteGateway::class);
+        $votes->expects(self::once())->method('create')->with(99, 42, 1_700_000_000);
+
+        $question = $this->service($sessionGateway, $questionGateway, voteGateway: $votes)->create(12, '  How does this work?  ');
 
         self::assertSame(99, $question->id);
         self::assertSame(42, $question->memberId);
@@ -131,6 +136,7 @@ final class QuestionServiceTest extends TestCase
         QnaQuestionGateway $questionGateway,
         ?int $memberId = 42,
         int $maxQuestionLength = 500,
+        ?QnaVoteGateway $voteGateway = null,
     ): QuestionService {
         $security = $this->createStub(Security::class);
 
@@ -142,6 +148,13 @@ final class QuestionServiceTest extends TestCase
             $security->method('getUser')->willReturn($member);
         }
 
+        $connection = $this->createStub(Connection::class);
+        $connection->method('transactional')->willReturnCallback(static fn (callable $callback): mixed => $callback());
+        if (null === $voteGateway) {
+            $voteGateway = $this->createMock(QnaVoteGateway::class);
+            $voteGateway->expects(self::never())->method('create');
+        }
+
         return new QuestionService(
             $sessionGateway,
             $questionGateway,
@@ -149,6 +162,8 @@ final class QuestionServiceTest extends TestCase
             $this->clock(),
             $maxQuestionLength,
             20,
+            $voteGateway,
+            $connection,
         );
     }
 

@@ -13,6 +13,7 @@ use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
 use HeimrichHannot\QnaBundle\Gateway\QnaVoteGateway;
 use HeimrichHannot\QnaBundle\Service\FrontendMemberProvider;
 use HeimrichHannot\QnaBundle\Service\QuestionAnswerService;
+use HeimrichHannot\QnaBundle\Service\QuestionService;
 use HeimrichHannot\QnaBundle\Service\VoteService;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -48,6 +49,57 @@ final class QuestionAnswerDatabaseTest extends TestCase
         $this->connection->delete('tl_qna_question', ['pid' => $this->sessionId]);
         $this->connection->delete('tl_qna_session', ['id' => $this->sessionId]);
         $this->connection->close();
+    }
+
+    public function testNewQuestionIncludesAuthorVoteAndCannotBeVotedTwice(): void
+    {
+        $question = $this->questionService(new QnaVoteGateway($this->connection))->create($this->sessionId, 'Automatically voted question');
+
+        try {
+            $votes = new QnaVoteGateway($this->connection);
+            self::assertSame(1, $votes->getState($question->id, 2147483647)->voteCount);
+            self::assertTrue($votes->getState($question->id, 2147483647)->hasVoted);
+            self::assertFalse($votes->getState($question->id, 2147483646)->hasVoted);
+            self::assertSame(1, $this->voteService()->vote($question->id, $this->sessionId)->voteCount);
+            self::assertSame(2, $this->voteService(2147483646)->vote($question->id, $this->sessionId)->voteCount);
+        } finally {
+            $this->connection->delete('tl_qna_vote', ['pid' => $question->id]);
+        }
+    }
+
+    public function testFailedAuthorVoteRollsBackQuestion(): void
+    {
+        $votes = $this->createMock(QnaVoteGateway::class);
+        $votes->expects(self::once())->method('create')->willThrowException(new \RuntimeException('Vote insert failed'));
+
+        try {
+            $this->questionService($votes)->create($this->sessionId, 'Must be rolled back');
+            self::fail('Expected vote failure.');
+        } catch (\RuntimeException $exception) {
+            self::assertSame('Vote insert failed', $exception->getMessage());
+        }
+
+        self::assertFalse($this->connection->isTransactionActive());
+        self::assertCount(1, (new QnaQuestionGateway($this->connection))->findForStage($this->sessionId));
+    }
+
+    private function questionService(QnaVoteGateway $votes): QuestionService
+    {
+        $member = $this->createStub(FrontendUser::class);
+        $member->method('__get')->willReturn(2147483647);
+        $security = $this->createStub(Security::class);
+        $security->method('getUser')->willReturn($member);
+
+        return new QuestionService(
+            new QnaSessionGateway($this->connection),
+            new QnaQuestionGateway($this->connection),
+            new FrontendMemberProvider($security),
+            new MockClock('@150'),
+            500,
+            20,
+            $votes,
+            $this->connection,
+        );
     }
 
     public function testMarkUndoPreservesVotesAndRestoresVoting(): void

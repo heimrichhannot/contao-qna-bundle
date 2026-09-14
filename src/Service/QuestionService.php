@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HeimrichHannot\QnaBundle\Service;
 
+use Doctrine\DBAL\Connection;
 use HeimrichHannot\QnaBundle\Dto\QnaQuestion;
 use HeimrichHannot\QnaBundle\Dto\QnaSession;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
@@ -15,6 +16,7 @@ use HeimrichHannot\QnaBundle\Exception\SessionNotOpenException;
 use HeimrichHannot\QnaBundle\Exception\SessionNotPublishedException;
 use HeimrichHannot\QnaBundle\Gateway\QnaQuestionGateway;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
+use HeimrichHannot\QnaBundle\Gateway\QnaVoteGateway;
 use Psr\Clock\ClockInterface;
 
 final readonly class QuestionService
@@ -26,6 +28,8 @@ final readonly class QuestionService
         private ClockInterface $clock,
         private int $maxQuestionLength,
         private int $questionCooldown,
+        private QnaVoteGateway $voteGateway,
+        private Connection $connection,
     ) {
     }
 
@@ -53,9 +57,12 @@ final readonly class QuestionService
             throw new QuestionCooldownException($this->questionCooldown - ($timestamp - $latestCreatedAt));
         }
 
-        $questionId = $this->questionGateway->create($session->id, $memberId, $question, $timestamp);
+        return $this->connection->transactional(function () use ($session, $memberId, $question, $timestamp): QnaQuestion {
+            $questionId = $this->questionGateway->create($session->id, $memberId, $question, $timestamp);
+            $this->voteGateway->create($questionId, $memberId, $timestamp);
 
-        return new QnaQuestion($questionId, $session->id, $memberId, $question, $timestamp);
+            return new QnaQuestion($questionId, $session->id, $memberId, $question, $timestamp);
+        });
     }
 
     private function requireOpenSession(int $sessionId): QnaSession
