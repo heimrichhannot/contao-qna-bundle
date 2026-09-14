@@ -11,6 +11,7 @@ use HeimrichHannot\QnaBundle\Exception\QuestionAnsweredException;
 use HeimrichHannot\QnaBundle\Exception\QuestionCooldownException;
 use HeimrichHannot\QnaBundle\Exception\SessionNotOpenException;
 use HeimrichHannot\QnaBundle\Exception\SessionNotPublishedException;
+use HeimrichHannot\QnaBundle\Gateway\LockedContextLoader;
 use HeimrichHannot\QnaBundle\Gateway\QnaQuestionGateway;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
 use HeimrichHannot\QnaBundle\Gateway\QnaVoteGateway;
@@ -70,8 +71,8 @@ final class QuestionAnswerDatabaseTest extends TestCase
             self::assertSame(1, $votes->getState($question->id, 2147483647)->voteCount);
             self::assertTrue($votes->getState($question->id, 2147483647)->hasVoted);
             self::assertFalse($votes->getState($question->id, 2147483646)->hasVoted);
-            self::assertSame(1, $this->voteService()->vote($question->id, $this->sessionId)->voteCount);
-            self::assertSame(2, $this->voteService(2147483646)->vote($question->id, $this->sessionId)->voteCount);
+            self::assertSame(1, $this->voteService()->vote($this->sessionId, $question->id)->voteCount);
+            self::assertSame(2, $this->voteService(2147483646)->vote($this->sessionId, $question->id)->voteCount);
         } finally {
             $this->connection->delete('tl_qna_vote', ['pid' => $question->id]);
         }
@@ -123,11 +124,11 @@ final class QuestionAnswerDatabaseTest extends TestCase
     {
         $questions = new QnaQuestionGateway($this->connection);
         self::assertFalse($questions->find($this->questionId)?->answered);
-        $this->voteService()->vote($this->questionId, $this->sessionId);
+        $this->voteService()->vote($this->sessionId, $this->questionId);
         $this->answerService()->setAnswered($this->sessionId, $this->questionId, true);
         $this->answerService()->setAnswered($this->sessionId, $this->questionId, true);
         try {
-            $this->voteService()->vote($this->questionId, $this->sessionId);
+            $this->voteService()->vote($this->sessionId, $this->questionId);
             self::fail('Answered vote must be rejected.');
         } catch (QuestionAnsweredException) {
             self::assertFalse($this->connection->isTransactionActive());
@@ -136,8 +137,8 @@ final class QuestionAnswerDatabaseTest extends TestCase
         self::assertTrue($questions->findForSession($this->sessionId, 0)[0]->answered);
         $this->answerService()->setAnswered($this->sessionId, $this->questionId, false);
         $this->answerService()->setAnswered($this->sessionId, $this->questionId, false);
-        self::assertTrue($this->voteService()->vote($this->questionId, $this->sessionId)->hasVoted);
-        self::assertTrue($this->voteService(2147483646)->vote($this->questionId, $this->sessionId)->hasVoted);
+        self::assertTrue($this->voteService()->vote($this->sessionId, $this->questionId)->hasVoted);
+        self::assertTrue($this->voteService(2147483646)->vote($this->sessionId, $this->questionId)->hasVoted);
         self::assertSame(2, $questions->findForStage($this->sessionId)[0]->voteCount);
     }
 
@@ -205,7 +206,7 @@ final class QuestionAnswerDatabaseTest extends TestCase
     public function testConcurrentDuplicateVotingIsIdempotentWithAnOldSnapshot(): void
     {
         $this->overlap(fn () => $this->operate('vote'), function (): void {
-            $state = $this->voteService()->vote($this->questionId);
+            $state = $this->voteService()->vote($this->sessionId, $this->questionId);
             self::assertTrue($state->hasVoted);
             self::assertSame(1, $state->voteCount);
         }, 'ok', true);
@@ -235,7 +236,7 @@ final class QuestionAnswerDatabaseTest extends TestCase
     {
         match ($operation) {
             'submit' => $this->questionService(new QnaVoteGateway($this->connection))->create($this->sessionId, 'Concurrent question'),
-            'vote' => $this->voteService()->vote($this->questionId, $this->sessionId),
+            'vote' => $this->voteService()->vote($this->sessionId, $this->questionId),
             'answer' => $this->answerService()->setAnswered($this->sessionId, $this->questionId, true),
             'unanswer' => $this->answerService()->setAnswered($this->sessionId, $this->questionId, false),
             default => throw new \LogicException('Unknown test operation'),
@@ -374,7 +375,10 @@ final class QuestionAnswerDatabaseTest extends TestCase
 
     private function answerService(): QuestionAnswerService
     {
-        return new QuestionAnswerService(new QnaSessionGateway($this->connection), new QnaQuestionGateway($this->connection), $this->connection);
+        $sessions = new QnaSessionGateway($this->connection);
+        $questions = new QnaQuestionGateway($this->connection);
+
+        return new QuestionAnswerService(new LockedContextLoader($sessions, $questions), $questions, $this->connection);
     }
 
     private function voteService(int $memberId = 2147483647): VoteService
@@ -384,6 +388,6 @@ final class QuestionAnswerDatabaseTest extends TestCase
         $security = $this->createStub(Security::class);
         $security->method('getUser')->willReturn($member);
 
-        return new VoteService(new QnaSessionGateway($this->connection), new QnaQuestionGateway($this->connection), new QnaVoteGateway($this->connection), new FrontendMemberProvider($security), new MockClock('@100'), $this->connection);
+        return new VoteService(new LockedContextLoader(new QnaSessionGateway($this->connection), new QnaQuestionGateway($this->connection)), new QnaVoteGateway($this->connection), new FrontendMemberProvider($security), new MockClock('@100'), $this->connection);
     }
 }

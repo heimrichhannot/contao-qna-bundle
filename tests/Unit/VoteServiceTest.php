@@ -12,6 +12,7 @@ use HeimrichHannot\QnaBundle\Dto\QnaVoteState;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
 use HeimrichHannot\QnaBundle\Exception\SessionNotOpenException;
 use HeimrichHannot\QnaBundle\Exception\SessionNotPublishedException;
+use HeimrichHannot\QnaBundle\Gateway\LockedContextLoader;
 use HeimrichHannot\QnaBundle\Gateway\QnaQuestionGateway;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
 use HeimrichHannot\QnaBundle\Gateway\QnaVoteGateway;
@@ -29,12 +30,12 @@ final class VoteServiceTest extends TestCase
         $sessions = $this->createStub(QnaSessionGateway::class);
         $sessions->method('find')->willReturn($this->session());
         $questions = $this->createMock(QnaQuestionGateway::class);
-        $questions->expects(self::exactly(2))->method('find')->with(23)->willReturn(new QnaQuestion(23, 12, 7, 'Question', 100, true));
+        $questions->expects(self::once())->method('find')->with(23, true)->willReturn(new QnaQuestion(23, 12, 7, 'Question', 100, true));
         $votes = $this->createMock(QnaVoteGateway::class);
         $votes->expects(self::never())->method('create');
         $this->expectException(\HeimrichHannot\QnaBundle\Exception\QuestionAnsweredException::class);
 
-        $this->service($sessions, $questions, $votes)->vote(23, 12);
+        $this->service($sessions, $questions, $votes)->vote(12, 23);
     }
 
     public function testFirstVoteIsCreatedAndReturnsCurrentState(): void
@@ -43,7 +44,7 @@ final class VoteServiceTest extends TestCase
         $voteGateway->expects(self::once())->method('create')->with(23, 42, 1_700_000_000);
         $voteGateway->expects(self::once())->method('getState')->with(23, 42)->willReturn(new QnaVoteState(23, 3, true));
 
-        $state = $this->service($sessionGateway, $questionGateway, $voteGateway)->vote(23);
+        $state = $this->service($sessionGateway, $questionGateway, $voteGateway)->vote(12, 23);
 
         self::assertSame(3, $state->voteCount);
         self::assertTrue($state->hasVoted);
@@ -57,7 +58,7 @@ final class VoteServiceTest extends TestCase
             ->willThrowException($this->createStub(UniqueConstraintViolationException::class));
         $voteGateway->expects(self::once())->method('getState')->with(23, 42)->willReturn(new QnaVoteState(23, 3, true));
 
-        $state = $this->service($sessionGateway, $questionGateway, $voteGateway)->vote(23);
+        $state = $this->service($sessionGateway, $questionGateway, $voteGateway)->vote(12, 23);
 
         self::assertTrue($state->hasVoted);
         self::assertSame(3, $state->voteCount);
@@ -83,8 +84,8 @@ final class VoteServiceTest extends TestCase
         );
         $service = $this->service($sessionGateway, $questionGateway, $voteGateway);
 
-        $service->vote(23);
-        $service->vote(24);
+        $service->vote(12, 23);
+        $service->vote(12, 24);
 
         self::assertSame([[23, 42], [24, 42]], $created);
     }
@@ -106,8 +107,8 @@ final class VoteServiceTest extends TestCase
             static fn (int $questionId): QnaVoteState => new QnaVoteState($questionId, 1, true),
         );
 
-        $this->service($sessionGateway, $questionGateway, $voteGateway, 42)->vote(23);
-        $this->service($sessionGateway, $questionGateway, $voteGateway, 43)->vote(23);
+        $this->service($sessionGateway, $questionGateway, $voteGateway, 42)->vote(12, 23);
+        $this->service($sessionGateway, $questionGateway, $voteGateway, 43)->vote(12, 23);
 
         self::assertSame([[23, 42], [23, 43]], $created);
     }
@@ -119,7 +120,7 @@ final class VoteServiceTest extends TestCase
 
         $this->expectException(SessionNotOpenException::class);
 
-        $this->service($sessionGateway, $questionGateway, $voteGateway)->vote(23);
+        $this->service($sessionGateway, $questionGateway, $voteGateway)->vote(12, 23);
     }
 
     public function testVoteIsRejectedForUnpublishedSession(): void
@@ -129,7 +130,7 @@ final class VoteServiceTest extends TestCase
 
         $this->expectException(SessionNotPublishedException::class);
 
-        $this->service($sessionGateway, $questionGateway, $voteGateway)->vote(23);
+        $this->service($sessionGateway, $questionGateway, $voteGateway)->vote(12, 23);
     }
 
     private function transactionConnection(): \Doctrine\DBAL\Connection
@@ -167,8 +168,7 @@ final class VoteServiceTest extends TestCase
         $security->method('getUser')->willReturn($member);
 
         return new VoteService(
-            $sessionGateway,
-            $questionGateway,
+            new LockedContextLoader($sessionGateway, $questionGateway),
             $voteGateway,
             new FrontendMemberProvider($security),
             $this->clock(),

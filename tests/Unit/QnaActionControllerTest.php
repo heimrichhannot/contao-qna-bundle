@@ -10,6 +10,7 @@ use HeimrichHannot\QnaBundle\Controller\QnaActionController;
 use HeimrichHannot\QnaBundle\Dto\QnaQuestion;
 use HeimrichHannot\QnaBundle\Dto\QnaSession;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
+use HeimrichHannot\QnaBundle\Gateway\LockedContextLoader;
 use HeimrichHannot\QnaBundle\Gateway\QnaQuestionGateway;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
 use HeimrichHannot\QnaBundle\Gateway\QnaVoteGateway;
@@ -275,8 +276,7 @@ final class QnaActionControllerTest extends TestCase
         $voteGateway->expects(self::never())->method('create');
         $memberSecurity = $this->createMemberSecurity(42);
         $voteService = new VoteService(
-            $gateway,
-            $questionGateway,
+            new LockedContextLoader($gateway, $questionGateway),
             $voteGateway,
             new FrontendMemberProvider($memberSecurity),
             new MockClock('@150'),
@@ -378,7 +378,7 @@ final class QnaActionControllerTest extends TestCase
             $controller = new QnaActionController(
                 $this->uninitializedQuestionService(), $this->uninitializedVoteService(), new SessionService($sessions, new MockClock('@100'), $this->transactionConnection()),
                 $sessions, $this->uninitializedResponseFactory(), $security, $urls,
-                new \HeimrichHannot\QnaBundle\Service\QuestionAnswerService($sessions, $questions, $this->transactionConnection()),
+                new \HeimrichHannot\QnaBundle\Service\QuestionAnswerService(new LockedContextLoader($sessions, $questions), $questions, $this->transactionConnection()),
             );
             $method = $answered ? 'answered' : 'unanswered';
             $response = $controller->$method(7, 23, Request::create('/action?sort=time', 'POST'));
@@ -404,7 +404,7 @@ final class QnaActionControllerTest extends TestCase
         $controller = new QnaActionController(
             $this->uninitializedQuestionService(), $this->uninitializedVoteService(), new SessionService($sessions, new MockClock('@100'), $this->transactionConnection()),
             $sessions, $this->createResponseFactory($sessions, $questions, $security, $security), $security, $this->createUrlGenerator(),
-            new \HeimrichHannot\QnaBundle\Service\QuestionAnswerService($sessions, $questions, $this->transactionConnection()),
+            new \HeimrichHannot\QnaBundle\Service\QuestionAnswerService(new LockedContextLoader($sessions, $questions), $questions, $this->transactionConnection()),
         );
         $response = $controller->answered(7, 23, Request::create('/action?sort=time', 'POST'));
         self::assertSame(422, $response->getStatusCode());
@@ -424,7 +424,7 @@ final class QnaActionControllerTest extends TestCase
         $controller = new QnaActionController(
             $this->uninitializedQuestionService(), $this->uninitializedVoteService(), new SessionService($sessions, new MockClock('@100'), $this->transactionConnection()),
             $sessions, $this->uninitializedResponseFactory(), $security, $this->createUrlGenerator(),
-            new \HeimrichHannot\QnaBundle\Service\QuestionAnswerService($sessions, $questions, $this->transactionConnection()),
+            new \HeimrichHannot\QnaBundle\Service\QuestionAnswerService(new LockedContextLoader($sessions, $questions), $questions, $this->transactionConnection()),
         );
         $this->expectException(\Contao\CoreBundle\Exception\PageNotFoundException::class);
         $controller->answered(7, 23, Request::create('/action', 'POST'));
@@ -442,7 +442,7 @@ final class QnaActionControllerTest extends TestCase
             $controller = new QnaActionController(
                 $this->uninitializedQuestionService(), $this->uninitializedVoteService(), new SessionService($sessions, new MockClock('@100'), $this->transactionConnection()),
                 $sessions, $this->uninitializedResponseFactory(), $security, $this->createUrlGenerator(),
-                new \HeimrichHannot\QnaBundle\Service\QuestionAnswerService($sessions, $questions, $this->transactionConnection()),
+                new \HeimrichHannot\QnaBundle\Service\QuestionAnswerService(new LockedContextLoader($sessions, $questions), $questions, $this->transactionConnection()),
             );
             try {
                 $controller->$method(7, 23, Request::create('/action', 'POST'));

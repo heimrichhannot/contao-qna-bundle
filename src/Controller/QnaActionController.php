@@ -112,7 +112,7 @@ final readonly class QnaActionController
     public function vote(int $sessionId, int $questionId): Response
     {
         try {
-            $this->voteService->vote($questionId, $sessionId);
+            $this->voteService->vote($sessionId, $questionId);
         } catch (AuthenticationRequiredException) {
             return $this->responseFactory->renderReaderQuestions(
                 $sessionId,

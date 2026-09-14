@@ -12,6 +12,7 @@ use HeimrichHannot\QnaBundle\Exception\QuestionNotFoundException;
 use HeimrichHannot\QnaBundle\Exception\SessionNotFoundException;
 use HeimrichHannot\QnaBundle\Exception\SessionNotOpenException;
 use HeimrichHannot\QnaBundle\Exception\SessionNotPublishedException;
+use HeimrichHannot\QnaBundle\Gateway\LockedContextLoader;
 use HeimrichHannot\QnaBundle\Gateway\QnaQuestionGateway;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
 use HeimrichHannot\QnaBundle\Service\QuestionAnswerService;
@@ -54,7 +55,7 @@ final class QuestionAnswerServiceTest extends TestCase
         $sessions = $this->createStub(QnaSessionGateway::class);
         $sessions->method('find')->willReturn(new QnaSession(7, 'Session', 'session', true, SessionState::OPEN, 100, null));
 
-        (new QuestionAnswerService($sessions, $questions, $connection))->setAnswered(7, 23, $after);
+        (new QuestionAnswerService(new LockedContextLoader($sessions, $questions), $questions, $connection))->setAnswered(7, 23, $after);
     }
 
     /** @return iterable<string, array{?QnaQuestion, ?QnaSession, class-string<\Throwable>}> */
@@ -83,6 +84,6 @@ final class QuestionAnswerServiceTest extends TestCase
         $sessions->method('find')->willReturn($session);
         $this->expectException($exception);
 
-        (new QuestionAnswerService($sessions, $questions, $connection))->setAnswered(7, 23, true);
+        (new QuestionAnswerService(new LockedContextLoader($sessions, $questions), $questions, $connection))->setAnswered(7, 23, true);
     }
 }
