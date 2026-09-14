@@ -117,14 +117,17 @@ class QnaQuestionGateway
         ]);
     }
 
-    public function findLatestCreatedAt(int $sessionId, int $memberId): ?int
+    /** Use a current read under the session lock for write preconditions, including empty history. */
+    public function findLatestCreatedAt(int $sessionId, int $memberId, bool $forUpdate = false): ?int
     {
         $createdAt = $this->connection->fetchOne(
             <<<'SQL'
-                SELECT MAX(createdAt)
+                SELECT createdAt
                 FROM tl_qna_question
                 WHERE pid = :sessionId AND memberId = :memberId
-                SQL,
+                ORDER BY createdAt DESC
+                LIMIT 1
+                SQL.($forUpdate ? ' FOR UPDATE' : ''),
             ['sessionId' => $sessionId, 'memberId' => $memberId],
             ['sessionId' => ParameterType::INTEGER, 'memberId' => ParameterType::INTEGER],
         );

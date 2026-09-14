@@ -8,19 +8,23 @@ use Contao\FrontendUser;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
 use HeimrichHannot\QnaBundle\Exception\QuestionAnsweredException;
+use HeimrichHannot\QnaBundle\Exception\QuestionCooldownException;
+use HeimrichHannot\QnaBundle\Exception\SessionNotOpenException;
+use HeimrichHannot\QnaBundle\Exception\SessionNotPublishedException;
 use HeimrichHannot\QnaBundle\Gateway\QnaQuestionGateway;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
 use HeimrichHannot\QnaBundle\Gateway\QnaVoteGateway;
 use HeimrichHannot\QnaBundle\Service\FrontendMemberProvider;
 use HeimrichHannot\QnaBundle\Service\QuestionAnswerService;
 use HeimrichHannot\QnaBundle\Service\QuestionService;
+use HeimrichHannot\QnaBundle\Service\SessionService;
 use HeimrichHannot\QnaBundle\Service\VoteService;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\Clock\MockClock;
 
-/** Run explicitly in contao0507.contao; all fixtures are removed in tearDown. */
+/** Opt-in tests against a migrated MySQL/MariaDB InnoDB database; fixtures are removed in tearDown. */
 final class QuestionAnswerDatabaseTest extends TestCase
 {
     private Connection $connection;
@@ -29,11 +33,17 @@ final class QuestionAnswerDatabaseTest extends TestCase
 
     protected function setUp(): void
     {
-        if ('contao0507.contao' !== getenv('DDEV_PROJECT')) {
-            self::markTestSkipped('Requires the contao0507.contao DDEV database.');
+        if ('1' !== getenv('QNA_DATABASE_TESTS')) {
+            self::markTestSkipped('Set QNA_DATABASE_TESTS=1 to use a disposable migrated database.');
         }
 
-        $this->connection = DriverManager::getConnection(['driver' => 'pdo_mysql', 'host' => 'db', 'dbname' => 'db', 'user' => 'db', 'password' => 'db']);
+        if (!\function_exists('pcntl_fork') || !\function_exists('posix_kill')) {
+            self::fail('Concurrency tests require pcntl and posix.');
+        }
+        $this->connection = $this->connect();
+        foreach (['tl_qna_session', 'tl_qna_question', 'tl_qna_vote'] as $table) {
+            self::assertSame('InnoDB', $this->connection->fetchOne('SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?', [$table]));
+        }
         $this->connection->insert('tl_qna_session', ['title' => 'Answered integration test', 'alias' => uniqid('qna-answer-test-', true), 'published' => '1', 'state' => 'open']);
         $this->sessionId = (int) $this->connection->lastInsertId();
         $this->questionId = (new QnaQuestionGateway($this->connection))->create($this->sessionId, 0, 'Temporary integration question', 100);
@@ -41,11 +51,11 @@ final class QuestionAnswerDatabaseTest extends TestCase
 
     protected function tearDown(): void
     {
-        if (!isset($this->connection)) {
+        if (!isset($this->connection, $this->sessionId)) {
             return;
         }
 
-        $this->connection->delete('tl_qna_vote', ['pid' => $this->questionId]);
+        $this->connection->executeStatement('DELETE FROM tl_qna_vote WHERE pid IN (SELECT id FROM tl_qna_question WHERE pid = ?)', [$this->sessionId]);
         $this->connection->delete('tl_qna_question', ['pid' => $this->sessionId]);
         $this->connection->delete('tl_qna_session', ['id' => $this->sessionId]);
         $this->connection->close();
@@ -69,14 +79,21 @@ final class QuestionAnswerDatabaseTest extends TestCase
 
     public function testFailedAuthorVoteRollsBackQuestion(): void
     {
-        $votes = $this->createMock(QnaVoteGateway::class);
-        $votes->expects(self::once())->method('create')->willThrowException(new \RuntimeException('Vote insert failed'));
+        $votesBefore = $this->integer($this->connection->fetchOne('SELECT COUNT(*) FROM tl_qna_vote WHERE memberId = ?', [2147483647]));
+        // Fail in the real database after inserting an author vote, exercising rollback of both rows.
+        $votes = new class($this->connection) extends QnaVoteGateway {
+            public function create(int $questionId, int $memberId, int $createdAt): void
+            {
+                parent::create($questionId, $memberId, $createdAt);
+                parent::create($questionId, $memberId, $createdAt);
+            }
+        };
 
         try {
             $this->questionService($votes)->create($this->sessionId, 'Must be rolled back');
             self::fail('Expected vote failure.');
-        } catch (\RuntimeException $exception) {
-            self::assertSame('Vote insert failed', $exception->getMessage());
+        } catch (\Doctrine\DBAL\Exception\UniqueConstraintViolationException) {
+            self::assertSame($votesBefore, $this->integer($this->connection->fetchOne('SELECT COUNT(*) FROM tl_qna_vote WHERE memberId = ?', [2147483647])));
         }
 
         self::assertFalse($this->connection->isTransactionActive());
@@ -127,78 +144,232 @@ final class QuestionAnswerDatabaseTest extends TestCase
     /** @return iterable<string, array{bool}> */
     public static function lockOrders(): iterable
     {
-        yield 'mark wins lock' => [true];
-        yield 'vote wins lock' => [false];
+        yield 'first ordering' => [true];
+        yield 'reverse ordering' => [false];
+    }
+
+    /** @return iterable<string, array{string, bool}> */
+    public static function closureOrders(): iterable
+    {
+        foreach (['submit', 'vote', 'answer', 'unanswer'] as $operation) {
+            yield $operation.' before close' => [$operation, false];
+            yield 'close before '.$operation => [$operation, true];
+        }
+    }
+
+    #[DataProvider('closureOrders')]
+    public function testClosureCoordinatesWithEveryWrite(string $operation, bool $closeFirst): void
+    {
+        if ('unanswer' === $operation) {
+            $this->answerService()->setAnswered($this->sessionId, $this->questionId, true);
+        }
+        $write = fn () => $this->operate($operation);
+        $close = fn () => $this->sessionService()->stop($this->sessionId);
+        $this->overlap($closeFirst ? $close : $write, $closeFirst ? $write : $close, $closeFirst ? SessionNotOpenException::class : 'ok');
+        self::assertSame('closed', $this->connection->fetchOne('SELECT state FROM tl_qna_session WHERE id = ?', [$this->sessionId]));
+        self::assertSame('submit' === $operation && !$closeFirst ? 2 : 1, $this->questionCount());
+        self::assertSame(\in_array($operation, ['submit', 'vote'], true) && !$closeFirst ? 1 : 0, $this->voteCount());
+        self::assertSame('answer' === $operation ? !$closeFirst : ('unanswer' === $operation && $closeFirst), (new QnaQuestionGateway($this->connection))->find($this->questionId)?->answered);
+    }
+
+    /** @return iterable<string, array{bool}> */
+    public static function cooldownHistories(): iterable
+    {
+        yield 'empty session' => [false];
+        yield 'expired previous question' => [true];
+    }
+
+    #[DataProvider('cooldownHistories')]
+    public function testConcurrentSubmissionsEnforceCooldownEvenWithoutPreviousQuestion(bool $withPrevious): void
+    {
+        $this->connection->delete('tl_qna_question', ['id' => $this->questionId]);
+        if ($withPrevious) {
+            (new QnaQuestionGateway($this->connection))->create($this->sessionId, 2147483647, 'Older question outside cooldown', 100);
+        }
+        // The child starts a repeatable-read snapshot before the first submission.
+        $this->overlap(fn () => $this->operate('submit'), fn () => $this->operate('submit'), QuestionCooldownException::class, true);
+        self::assertSame($withPrevious ? 2 : 1, $this->questionCount());
+        self::assertSame(1, $this->voteCount());
     }
 
     #[DataProvider('lockOrders')]
-    public function testConcurrentMarkAndVoteSerializeOnQuestion(bool $markFirst): void
+    public function testAnsweringAndVotingSerialize(bool $answerFirst): void
     {
-        // Fork with no open database socket so each process owns its connection.
+        $answer = fn () => $this->operate('answer');
+        $vote = fn () => $this->operate('vote');
+        $this->overlap($answerFirst ? $answer : $vote, $answerFirst ? $vote : $answer, $answerFirst ? QuestionAnsweredException::class : 'ok');
+        self::assertTrue((new QnaQuestionGateway($this->connection))->find($this->questionId)?->answered);
+        self::assertSame($answerFirst ? 0 : 1, $this->voteCount());
+    }
+
+    public function testConcurrentDuplicateVotingIsIdempotentWithAnOldSnapshot(): void
+    {
+        $this->overlap(fn () => $this->operate('vote'), function (): void {
+            $state = $this->voteService()->vote($this->questionId);
+            self::assertTrue($state->hasVoted);
+            self::assertSame(1, $state->voteCount);
+        }, 'ok', true);
+        self::assertSame(1, $this->voteCount());
+    }
+
+    #[DataProvider('lockOrders')]
+    public function testBackendUnpublicationCoordinatesWithSubmission(bool $unpublishFirst): void
+    {
+        $unpublish = fn () => $this->connection->update('tl_qna_session', ['published' => ''], ['id' => $this->sessionId]);
+        $submit = fn () => $this->operate('submit');
+        $this->overlap($unpublishFirst ? $unpublish : $submit, $unpublishFirst ? $submit : $unpublish, $unpublishFirst ? SessionNotPublishedException::class : 'ok');
+        self::assertSame($unpublishFirst ? 1 : 2, $this->questionCount());
+        self::assertSame($unpublishFirst ? 0 : 1, $this->voteCount());
+    }
+
+    public function testStartCoordinatesWithSubmission(): void
+    {
+        $this->connection->update('tl_qna_session', ['state' => 'waiting'], ['id' => $this->sessionId]);
+        $this->overlap(fn () => $this->sessionService()->start($this->sessionId), fn () => $this->operate('submit'), 'ok');
+        self::assertSame(2, $this->questionCount());
+        self::assertSame(1, $this->voteCount());
+        self::assertSame('open', $this->connection->fetchOne('SELECT state FROM tl_qna_session WHERE id = ?', [$this->sessionId]));
+    }
+
+    private function operate(string $operation): void
+    {
+        match ($operation) {
+            'submit' => $this->questionService(new QnaVoteGateway($this->connection))->create($this->sessionId, 'Concurrent question'),
+            'vote' => $this->voteService()->vote($this->questionId, $this->sessionId),
+            'answer' => $this->answerService()->setAnswered($this->sessionId, $this->questionId, true),
+            'unanswer' => $this->answerService()->setAnswered($this->sessionId, $this->questionId, false),
+            default => throw new \LogicException('Unknown test operation'),
+        };
+    }
+
+    /**
+     * Hold the first service's transaction open until InnoDB proves the second is waiting.
+     * Both processes own separate sockets. The observer needs PROCESS privilege.
+     */
+    private function overlap(callable $first, callable $second, string $expected, bool $oldSnapshot = false): void
+    {
         $this->connection->close();
-        $signal = tempnam(sys_get_temp_dir(), 'qna-lock-');
-        self::assertIsString($signal);
-        $result = $signal.'.result';
+        $directory = sys_get_temp_dir().'/qna-lock-'.bin2hex(random_bytes(8));
+        self::assertTrue(mkdir($directory));
         $pid = pcntl_fork();
         self::assertNotSame(-1, $pid);
         if (0 === $pid) {
             try {
-                $deadline = microtime(true) + 10;
-                while ('locked' !== file_get_contents($signal)) {
-                    if (microtime(true) > $deadline) {
-                        throw new \RuntimeException('Parent did not acquire lock.');
-                    }
-                    usleep(10000);
+                $this->connection = $this->connect();
+                if ($oldSnapshot) {
+                    $this->connection->beginTransaction();
+                    $this->questionCount();
+                    $this->voteCount();
                 }
-                file_put_contents($result, 'started');
-                if ($markFirst) {
-                    try {
-                        $this->voteService()->vote($this->questionId, $this->sessionId);
-                        file_put_contents($result, 'unexpected vote');
-                    } catch (QuestionAnsweredException) {
-                        file_put_contents($result, 'rejected');
-                    }
-                } else {
-                    $this->answerService()->setAnswered($this->sessionId, $this->questionId, true);
-                    file_put_contents($result, 'marked');
+                file_put_contents($directory.'/ready', (string) $this->integer($this->connection->fetchOne('SELECT CONNECTION_ID()')));
+                $this->await(static fn () => is_file($directory.'/go'));
+                $second();
+                if ($this->connection->isTransactionActive()) {
+                    $this->connection->commit();
                 }
+                file_put_contents($directory.'/result', 'ok');
             } catch (\Throwable $exception) {
-                file_put_contents($result, $exception->getMessage());
+                file_put_contents($directory.'/result', $exception::class);
+                file_put_contents($directory.'/error', $exception->getMessage());
+            } finally {
+                $this->connection->close();
             }
             exit(0);
         }
 
+        $observer = null;
         try {
+            $this->await(static fn () => is_file($directory.'/ready'));
+            $childConnectionId = (int) file_get_contents($directory.'/ready');
+            $this->connection = $this->connect();
             $this->connection->beginTransaction();
-            (new QnaQuestionGateway($this->connection))->find($this->questionId, true);
-            if ($markFirst) {
-                $this->answerService()->setAnswered($this->sessionId, $this->questionId, true);
-            } else {
-                $this->voteService()->vote($this->questionId, $this->sessionId);
-            }
-            file_put_contents($signal, 'locked');
-            $deadline = microtime(true) + 10;
-            while (!is_file($result) && microtime(true) < $deadline) {
-                usleep(10000);
-            }
-            usleep(200000);
-            self::assertSame('started', file_get_contents($result), 'The second operation must wait for the question lock.');
+            $first();
+            file_put_contents($directory.'/go', 'go');
+            $observer = $this->connect(true);
+            $this->await(static function () use ($observer, $childConnectionId, $directory): bool {
+                if (is_file($directory.'/result')) {
+                    self::fail('Second operation finished without waiting: '.file_get_contents($directory.'/result'));
+                }
+
+                $query = $observer->fetchOne("SELECT trx_query FROM information_schema.INNODB_TRX WHERE trx_mysql_thread_id = ? AND trx_state = 'LOCK WAIT'", [$childConnectionId]);
+                if (false === $query) {
+                    return false;
+                }
+                self::assertIsString($query);
+                self::assertStringContainsString('tl_qna_session', $query, 'The first contested lock must be the session, not a question or vote.');
+
+                return true;
+            });
             $this->connection->commit();
-            pcntl_waitpid($pid, $status);
-            self::assertSame($markFirst ? 'rejected' : 'marked', file_get_contents($result));
-            $question = (new QnaQuestionGateway($this->connection))->findForStage($this->sessionId)[0];
-            self::assertTrue($question->answered);
-            self::assertSame($markFirst ? 0 : 1, $question->voteCount);
+            $this->await(static fn () => is_file($directory.'/result'));
+            self::assertSame($expected, file_get_contents($directory.'/result'), is_file($directory.'/error') ? (string) file_get_contents($directory.'/error') : '');
         } finally {
             if ($this->connection->isTransactionActive()) {
                 $this->connection->rollBack();
             }
+            // Bound cleanup even when an assertion or database connection fails.
+            posix_kill($pid, \SIGTERM);
             pcntl_waitpid($pid, $status);
-            unlink($signal);
-            if (is_file($result)) {
-                unlink($result);
+            $observer?->close();
+            foreach (glob($directory.'/*') ?: [] as $file) {
+                unlink($file);
             }
+            rmdir($directory);
         }
+    }
+
+    private function await(callable $condition): void
+    {
+        $deadline = microtime(true) + 10;
+        while (!$condition()) {
+            if (microtime(true) >= $deadline) {
+                throw new \RuntimeException('Timed out waiting for concurrency barrier.');
+            }
+            // InnoDB instrumentation caches results; allow its 100 ms refresh interval.
+            usleep(200000);
+        }
+    }
+
+    private function connect(bool $observer = false): Connection
+    {
+        $connection = DriverManager::getConnection([
+            'driver' => 'pdo_mysql',
+            'host' => getenv('QNA_TEST_DB_HOST') ?: 'db',
+            'port' => (int) (getenv('QNA_TEST_DB_PORT') ?: 3306),
+            'dbname' => getenv('QNA_TEST_DB_NAME') ?: 'db',
+            'user' => ($observer ? getenv('QNA_TEST_OBSERVER_USER') : false) ?: (getenv('QNA_TEST_DB_USER') ?: 'db'),
+            'password' => ($observer ? getenv('QNA_TEST_OBSERVER_PASSWORD') : false) ?: (getenv('QNA_TEST_DB_PASSWORD') ?: 'db'),
+        ]);
+        $connection->executeStatement('SET SESSION innodb_lock_wait_timeout = 10');
+        $connection->executeStatement('SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+        // DBAL 3 needs explicit savepoints for the outer test transaction; DBAL 4 always uses them.
+        if (method_exists($connection, 'setNestTransactionsWithSavepoints')) { // @phpstan-ignore function.alreadyNarrowedType
+            $connection->setNestTransactionsWithSavepoints(true);
+        }
+
+        return $connection;
+    }
+
+    private function integer(mixed $value): int
+    {
+        self::assertTrue(\is_int($value) || \is_string($value));
+
+        return (int) $value;
+    }
+
+    private function questionCount(): int
+    {
+        return $this->integer($this->connection->fetchOne('SELECT COUNT(*) FROM tl_qna_question WHERE pid = ?', [$this->sessionId]));
+    }
+
+    private function voteCount(): int
+    {
+        return $this->integer($this->connection->fetchOne('SELECT COUNT(*) FROM tl_qna_vote WHERE pid IN (SELECT id FROM tl_qna_question WHERE pid = ?)', [$this->sessionId]));
+    }
+
+    private function sessionService(): SessionService
+    {
+        return new SessionService(new QnaSessionGateway($this->connection), new MockClock('@150'), $this->connection);
     }
 
     private function answerService(): QuestionAnswerService

@@ -33,7 +33,8 @@ class QnaVoteGateway
         );
     }
 
-    public function getState(int $questionId, int $memberId): QnaVoteState
+    /** A locking read returns current state even inside an older repeatable-read snapshot. */
+    public function getState(int $questionId, int $memberId, bool $forUpdate = false): QnaVoteState
     {
         $row = $this->connection->fetchAssociative(
             <<<'SQL'
@@ -42,7 +43,7 @@ class QnaVoteGateway
                     COALESCE(MAX(CASE WHEN memberId = :memberId THEN 1 ELSE 0 END), 0) AS hasVoted
                 FROM tl_qna_vote
                 WHERE pid = :questionId
-                SQL,
+                SQL.($forUpdate ? ' FOR UPDATE' : ''),
             ['questionId' => $questionId, 'memberId' => $memberId],
             ['questionId' => ParameterType::INTEGER, 'memberId' => ParameterType::INTEGER],
         );

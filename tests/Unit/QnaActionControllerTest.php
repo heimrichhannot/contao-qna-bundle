@@ -51,7 +51,7 @@ final class QnaActionControllerTest extends TestCase
         $controller = new QnaActionController(
             $this->uninitializedQuestionService(),
             $this->uninitializedVoteService(),
-            new SessionService($gateway, new MockClock('@100')),
+            new SessionService($gateway, new MockClock('@100'), $this->transactionConnection()),
             $gateway,
             $this->uninitializedResponseFactory(),
             $security,
@@ -104,7 +104,7 @@ final class QnaActionControllerTest extends TestCase
         $controller = new QnaActionController(
             $this->uninitializedQuestionService(),
             $this->uninitializedVoteService(),
-            new SessionService($gateway, new MockClock('@150')),
+            new SessionService($gateway, new MockClock('@150'), $this->transactionConnection()),
             $gateway,
             $responseFactory,
             $security,
@@ -139,7 +139,7 @@ final class QnaActionControllerTest extends TestCase
         $controller = new QnaActionController(
             $this->uninitializedQuestionService(),
             $this->uninitializedVoteService(),
-            new SessionService($gateway, new MockClock('@100')),
+            new SessionService($gateway, new MockClock('@100'), $this->transactionConnection()),
             $gateway,
             $this->uninitializedResponseFactory(),
             $security,
@@ -168,7 +168,7 @@ final class QnaActionControllerTest extends TestCase
         $controller = new QnaActionController(
             $this->uninitializedQuestionService(),
             $this->uninitializedVoteService(),
-            new SessionService($gateway, new MockClock('@150')),
+            new SessionService($gateway, new MockClock('@150'), $this->transactionConnection()),
             $gateway,
             $responseFactory,
             $security,
@@ -212,7 +212,7 @@ final class QnaActionControllerTest extends TestCase
         $controller = new QnaActionController(
             $questionService,
             $this->uninitializedVoteService(),
-            new SessionService($gateway, new MockClock('@150')),
+            new SessionService($gateway, new MockClock('@150'), $this->transactionConnection()),
             $gateway,
             $this->uninitializedResponseFactory(),
             $this->createStub(Security::class),
@@ -248,7 +248,7 @@ final class QnaActionControllerTest extends TestCase
         $controller = new QnaActionController(
             $questionService,
             $this->uninitializedVoteService(),
-            new SessionService($gateway, new MockClock('@150')),
+            new SessionService($gateway, new MockClock('@150'), $this->transactionConnection()),
             $gateway,
             $this->createResponseFactory($gateway, $questionGateway, $memberSecurity, $this->createStub(Security::class)),
             $this->createStub(Security::class),
@@ -285,7 +285,7 @@ final class QnaActionControllerTest extends TestCase
         $controller = new QnaActionController(
             $this->uninitializedQuestionService(),
             $voteService,
-            new SessionService($gateway, new MockClock('@150')),
+            new SessionService($gateway, new MockClock('@150'), $this->transactionConnection()),
             $gateway,
             $this->createResponseFactory($gateway, $questionGateway, $memberSecurity, $this->createStub(Security::class)),
             $this->createStub(Security::class),
@@ -321,7 +321,7 @@ final class QnaActionControllerTest extends TestCase
         $controller = new QnaActionController(
             $questionService,
             $this->uninitializedVoteService(),
-            new SessionService($gateway, new MockClock('@150')),
+            new SessionService($gateway, new MockClock('@150'), $this->transactionConnection()),
             $gateway,
             $this->createResponseFactory($gateway, $questionGateway, $memberSecurity, $this->createStub(Security::class)),
             $this->createStub(Security::class),
@@ -349,7 +349,7 @@ final class QnaActionControllerTest extends TestCase
         $controller = new QnaActionController(
             $this->uninitializedQuestionService(),
             $this->uninitializedVoteService(),
-            new SessionService($gateway, $this->createStub(ClockInterface::class)),
+            new SessionService($gateway, $this->createStub(ClockInterface::class), $this->transactionConnection()),
             $gateway,
             $this->uninitializedResponseFactory(),
             $security,
@@ -376,7 +376,7 @@ final class QnaActionControllerTest extends TestCase
             $urls = $this->createMock(UrlGeneratorInterface::class);
             $urls->expects(self::once())->method('generate')->with('contao_qna_stage_questions', ['sessionId' => 7, 'sort' => 'time'])->willReturn('/stage?sort=time');
             $controller = new QnaActionController(
-                $this->uninitializedQuestionService(), $this->uninitializedVoteService(), new SessionService($sessions, new MockClock('@100')),
+                $this->uninitializedQuestionService(), $this->uninitializedVoteService(), new SessionService($sessions, new MockClock('@100'), $this->transactionConnection()),
                 $sessions, $this->uninitializedResponseFactory(), $security, $urls,
                 new \HeimrichHannot\QnaBundle\Service\QuestionAnswerService($sessions, $questions, $this->transactionConnection()),
             );
@@ -402,7 +402,7 @@ final class QnaActionControllerTest extends TestCase
         $security = $this->createStub(Security::class);
         $security->method('isGranted')->willReturn(true);
         $controller = new QnaActionController(
-            $this->uninitializedQuestionService(), $this->uninitializedVoteService(), new SessionService($sessions, new MockClock('@100')),
+            $this->uninitializedQuestionService(), $this->uninitializedVoteService(), new SessionService($sessions, new MockClock('@100'), $this->transactionConnection()),
             $sessions, $this->createResponseFactory($sessions, $questions, $security, $security), $security, $this->createUrlGenerator(),
             new \HeimrichHannot\QnaBundle\Service\QuestionAnswerService($sessions, $questions, $this->transactionConnection()),
         );
@@ -422,7 +422,7 @@ final class QnaActionControllerTest extends TestCase
         $security = $this->createStub(Security::class);
         $security->method('isGranted')->willReturn(true);
         $controller = new QnaActionController(
-            $this->uninitializedQuestionService(), $this->uninitializedVoteService(), new SessionService($sessions, new MockClock('@100')),
+            $this->uninitializedQuestionService(), $this->uninitializedVoteService(), new SessionService($sessions, new MockClock('@100'), $this->transactionConnection()),
             $sessions, $this->uninitializedResponseFactory(), $security, $this->createUrlGenerator(),
             new \HeimrichHannot\QnaBundle\Service\QuestionAnswerService($sessions, $questions, $this->transactionConnection()),
         );
@@ -440,7 +440,7 @@ final class QnaActionControllerTest extends TestCase
             $security = $this->createStub(Security::class);
             $security->method('isGranted')->willReturn(false);
             $controller = new QnaActionController(
-                $this->uninitializedQuestionService(), $this->uninitializedVoteService(), new SessionService($sessions, new MockClock('@100')),
+                $this->uninitializedQuestionService(), $this->uninitializedVoteService(), new SessionService($sessions, new MockClock('@100'), $this->transactionConnection()),
                 $sessions, $this->uninitializedResponseFactory(), $security, $this->createUrlGenerator(),
                 new \HeimrichHannot\QnaBundle\Service\QuestionAnswerService($sessions, $questions, $this->transactionConnection()),
             );

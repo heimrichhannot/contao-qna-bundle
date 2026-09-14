@@ -18,10 +18,10 @@ final class SessionServiceTest extends TestCase
     public function testStartOpensWaitingSessionAndSetsStartedAt(): void
     {
         $gateway = $this->createMock(QnaSessionGateway::class);
-        $gateway->expects(self::once())->method('find')->with(12)->willReturn($this->session(SessionState::WAITING));
+        $gateway->expects(self::once())->method('find')->with(12, true)->willReturn($this->session(SessionState::WAITING));
         $gateway->expects(self::once())->method('markOpen')->with(12, 1_700_000_000)->willReturn(true);
 
-        $session = (new SessionService($gateway, $this->clock()))->start(12);
+        $session = (new SessionService($gateway, $this->clock(), $this->connection()))->start(12);
 
         self::assertSame(SessionState::OPEN, $session->state);
         self::assertSame(1_700_000_000, $session->startedAt);
@@ -31,10 +31,10 @@ final class SessionServiceTest extends TestCase
     public function testStopClosesOpenSessionAndSetsEndedAt(): void
     {
         $gateway = $this->createMock(QnaSessionGateway::class);
-        $gateway->expects(self::once())->method('find')->with(12)->willReturn($this->session(SessionState::OPEN));
+        $gateway->expects(self::once())->method('find')->with(12, true)->willReturn($this->session(SessionState::OPEN));
         $gateway->expects(self::once())->method('markClosed')->with(12, 1_700_000_000)->willReturn(true);
 
-        $session = (new SessionService($gateway, $this->clock()))->stop(12);
+        $session = (new SessionService($gateway, $this->clock(), $this->connection()))->stop(12);
 
         self::assertSame(SessionState::CLOSED, $session->state);
         self::assertSame(1_700_000_000, $session->endedAt);
@@ -48,7 +48,7 @@ final class SessionServiceTest extends TestCase
 
         $this->expectException(InvalidSessionTransitionException::class);
 
-        (new SessionService($gateway, $this->clock()))->start(12);
+        (new SessionService($gateway, $this->clock(), $this->connection()))->start(12);
     }
 
     public function testUnpublishedSessionCannotBeStarted(): void
@@ -59,7 +59,15 @@ final class SessionServiceTest extends TestCase
 
         $this->expectException(SessionNotPublishedException::class);
 
-        (new SessionService($gateway, $this->clock()))->start(12);
+        (new SessionService($gateway, $this->clock(), $this->connection()))->start(12);
+    }
+
+    private function connection(): \Doctrine\DBAL\Connection
+    {
+        $connection = $this->createStub(\Doctrine\DBAL\Connection::class);
+        $connection->method('transactional')->willReturnCallback(static fn (callable $callback): mixed => $callback());
+
+        return $connection;
     }
 
     private function session(SessionState $state, bool $published = true): QnaSession

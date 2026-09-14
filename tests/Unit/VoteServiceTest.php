@@ -29,7 +29,7 @@ final class VoteServiceTest extends TestCase
         $sessions = $this->createStub(QnaSessionGateway::class);
         $sessions->method('find')->willReturn($this->session());
         $questions = $this->createMock(QnaQuestionGateway::class);
-        $questions->expects(self::once())->method('find')->with(23, true)->willReturn(new QnaQuestion(23, 12, 7, 'Question', 100, true));
+        $questions->expects(self::exactly(2))->method('find')->with(23)->willReturn(new QnaQuestion(23, 12, 7, 'Question', 100, true));
         $votes = $this->createMock(QnaVoteGateway::class);
         $votes->expects(self::never())->method('create');
         $this->expectException(\HeimrichHannot\QnaBundle\Exception\QuestionAnsweredException::class);

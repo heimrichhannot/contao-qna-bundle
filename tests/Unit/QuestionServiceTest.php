@@ -29,10 +29,10 @@ final class QuestionServiceTest extends TestCase
     public function testCreatesTrimmedQuestionForMemberFromSecurityContext(): void
     {
         $sessionGateway = $this->createMock(QnaSessionGateway::class);
-        $sessionGateway->expects(self::once())->method('find')->with(12)->willReturn($this->session(SessionState::OPEN));
+        $sessionGateway->expects(self::once())->method('find')->with(12, true)->willReturn($this->session(SessionState::OPEN));
 
         $questionGateway = $this->createMock(QnaQuestionGateway::class);
-        $questionGateway->expects(self::once())->method('findLatestCreatedAt')->with(12, 42)->willReturn(null);
+        $questionGateway->expects(self::once())->method('findLatestCreatedAt')->with(12, 42, true)->willReturn(null);
         $questionGateway->expects(self::once())
             ->method('create')
             ->with(12, 42, 'How does this work?', 1_700_000_000)
@@ -123,7 +123,7 @@ final class QuestionServiceTest extends TestCase
         $sessionGateway = $this->createStub(QnaSessionGateway::class);
         $sessionGateway->method('find')->willReturn($this->session(SessionState::OPEN));
         $questionGateway = $this->createMock(QnaQuestionGateway::class);
-        $questionGateway->expects(self::once())->method('findLatestCreatedAt')->with(12, 42)->willReturn(1_699_999_990);
+        $questionGateway->expects(self::once())->method('findLatestCreatedAt')->with(12, 42, true)->willReturn(1_699_999_990);
         $questionGateway->expects(self::never())->method('create');
 
         $this->expectException(QuestionCooldownException::class);

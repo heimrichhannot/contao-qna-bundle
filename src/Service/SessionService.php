@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace HeimrichHannot\QnaBundle\Service;
 
+use Doctrine\DBAL\Connection;
 use HeimrichHannot\QnaBundle\Dto\QnaSession;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
 use HeimrichHannot\QnaBundle\Exception\InvalidSessionTransitionException;
 use HeimrichHannot\QnaBundle\Exception\SessionNotFoundException;
-use HeimrichHannot\QnaBundle\Exception\SessionNotPublishedException;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
 use Psr\Clock\ClockInterface;
 
@@ -17,55 +17,58 @@ final readonly class SessionService
     public function __construct(
         private QnaSessionGateway $sessionGateway,
         private ClockInterface $clock,
+        private Connection $connection,
     ) {
     }
 
     public function start(int $sessionId): QnaSession
     {
-        $session = $this->requirePublishedSession($sessionId);
+        return $this->connection->transactional(function () use ($sessionId): QnaSession {
+            $session = $this->lockPublishedSession($sessionId);
 
-        if (SessionState::WAITING !== $session->state) {
-            throw new InvalidSessionTransitionException($session->state, SessionState::OPEN);
-        }
+            if (SessionState::WAITING !== $session->state) {
+                throw new InvalidSessionTransitionException($session->state, SessionState::OPEN);
+            }
 
-        $timestamp = $this->clock->now()->getTimestamp();
+            $timestamp = $this->clock->now()->getTimestamp();
 
-        if (!$this->sessionGateway->markOpen($sessionId, $timestamp)) {
-            $current = $this->sessionGateway->find($sessionId);
+            if (!$this->sessionGateway->markOpen($sessionId, $timestamp)) {
+                $current = $this->sessionGateway->find($sessionId, true);
 
-            throw new InvalidSessionTransitionException($current->state ?? $session->state, SessionState::OPEN);
-        }
+                throw new InvalidSessionTransitionException($current->state ?? $session->state, SessionState::OPEN);
+            }
 
-        return $session->withState(SessionState::OPEN, $timestamp);
+            return $session->withState(SessionState::OPEN, $timestamp);
+        });
     }
 
     public function stop(int $sessionId): QnaSession
     {
-        $session = $this->requirePublishedSession($sessionId);
+        return $this->connection->transactional(function () use ($sessionId): QnaSession {
+            $session = $this->lockPublishedSession($sessionId);
 
-        if (SessionState::OPEN !== $session->state) {
-            throw new InvalidSessionTransitionException($session->state, SessionState::CLOSED);
-        }
+            if (SessionState::OPEN !== $session->state) {
+                throw new InvalidSessionTransitionException($session->state, SessionState::CLOSED);
+            }
 
-        $timestamp = $this->clock->now()->getTimestamp();
+            $timestamp = $this->clock->now()->getTimestamp();
 
-        if (!$this->sessionGateway->markClosed($sessionId, $timestamp)) {
-            $current = $this->sessionGateway->find($sessionId);
+            if (!$this->sessionGateway->markClosed($sessionId, $timestamp)) {
+                $current = $this->sessionGateway->find($sessionId, true);
 
-            throw new InvalidSessionTransitionException($current->state ?? $session->state, SessionState::CLOSED);
-        }
+                throw new InvalidSessionTransitionException($current->state ?? $session->state, SessionState::CLOSED);
+            }
 
-        return $session->withState(SessionState::CLOSED, $timestamp);
+            return $session->withState(SessionState::CLOSED, $timestamp);
+        });
     }
 
-    private function requirePublishedSession(int $sessionId): QnaSession
+    private function lockPublishedSession(int $sessionId): QnaSession
     {
-        $session = $this->sessionGateway->find($sessionId)
+        $session = $this->sessionGateway->find($sessionId, true)
             ?? throw new SessionNotFoundException($sessionId);
 
-        if (!$session->published) {
-            throw new SessionNotPublishedException($sessionId);
-        }
+        $session->assertPublished();
 
         return $session;
     }

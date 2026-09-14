@@ -20,6 +20,10 @@ final readonly class MemberDataEraser
     public function erase(int $memberId): void
     {
         $this->connection->transactional(function (Connection $connection) use ($memberId): void {
+            // Maintenance spans sessions: acquire all session locks in ascending order first.
+            // Publication/state do not restrict erasure of personal data.
+            $connection->fetchFirstColumn('SELECT id FROM tl_qna_session ORDER BY id FOR UPDATE');
+            $connection->fetchFirstColumn('SELECT id FROM tl_qna_question WHERE memberId = ? ORDER BY id FOR UPDATE', [$memberId]);
             $this->voteGateway->deleteByMemberIdOrQuestionAuthor($memberId);
             $this->questionGateway->deleteByMemberId($memberId);
         });

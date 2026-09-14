@@ -19,18 +19,21 @@ use PHPUnit\Framework\TestCase;
 
 final class MemberDataDeletionTest extends TestCase
 {
-    public function testErasingMemberDataDeletesVotesBeforeQuestions(): void
+    public function testErasingMemberDataLocksSessionsThenQuestionsBeforeDeletingVotesAndQuestions(): void
     {
         $statements = [];
         $memberDataEraser = $this->createMemberDataEraser($statements);
 
         $memberDataEraser->erase(42);
 
-        self::assertCount(2, $statements);
-        self::assertStringContainsString('DELETE FROM tl_qna_vote', $statements[0]['sql']);
-        self::assertStringContainsString('DELETE FROM tl_qna_question', $statements[1]['sql']);
-        self::assertSame(['memberId' => 42], $statements[0]['params']);
-        self::assertSame(['memberId' => 42], $statements[1]['params']);
+        self::assertCount(4, $statements);
+        self::assertSame('SELECT id FROM tl_qna_session ORDER BY id FOR UPDATE', $statements[0]['sql']);
+        self::assertSame('SELECT id FROM tl_qna_question WHERE memberId = ? ORDER BY id FOR UPDATE', $statements[1]['sql']);
+        self::assertSame([42], $statements[1]['params']);
+        self::assertStringContainsString('DELETE FROM tl_qna_vote', $statements[2]['sql']);
+        self::assertStringContainsString('DELETE FROM tl_qna_question', $statements[3]['sql']);
+        self::assertSame(['memberId' => 42], $statements[2]['params']);
+        self::assertSame(['memberId' => 42], $statements[3]['params']);
     }
 
     /**
@@ -44,7 +47,7 @@ final class MemberDataDeletionTest extends TestCase
 
         $this->invokeCloseAccountListener($listenerClass, $memberDataEraser, 'close_delete');
 
-        self::assertCount(2, $statements);
+        self::assertCount(4, $statements);
     }
 
     /**
@@ -71,7 +74,7 @@ final class MemberDataDeletionTest extends TestCase
     }
 
     /**
-     * @param list<array{sql: string, params: array<string, int>}> $statements
+     * @param list<array{sql: string, params: array<array-key, int>}> $statements
      */
     private function createMemberDataEraser(array &$statements): MemberDataEraser
     {
@@ -80,6 +83,13 @@ final class MemberDataDeletionTest extends TestCase
             ->method('transactional')
             ->willReturnCallback(static fn (\Closure $callback): mixed => $callback($connection))
         ;
+        $connection->method('fetchFirstColumn')->willReturnCallback(
+            static function (string $sql, array $params = []) use (&$statements): array {
+                $statements[] = ['sql' => $sql, 'params' => $params];
+
+                return [];
+            },
+        );
         $connection
             ->method('executeStatement')
             ->willReturnCallback(

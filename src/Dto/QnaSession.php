@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace HeimrichHannot\QnaBundle\Dto;
 
 use HeimrichHannot\QnaBundle\Enum\SessionState;
+use HeimrichHannot\QnaBundle\Exception\SessionNotOpenException;
+use HeimrichHannot\QnaBundle\Exception\SessionNotPublishedException;
 
 final readonly class QnaSession
 {
@@ -17,6 +19,22 @@ final readonly class QnaSession
         public ?int $startedAt,
         public ?int $endedAt,
     ) {
+    }
+
+    public function assertPublished(): void
+    {
+        if (!$this->published) {
+            throw new SessionNotPublishedException($this->id);
+        }
+    }
+
+    public function assertOpen(): void
+    {
+        $this->assertPublished();
+
+        if (SessionState::OPEN !== $this->state) {
+            throw new SessionNotOpenException($this->id, $this->state);
+        }
     }
 
     public function withState(SessionState $state, int $timestamp): self

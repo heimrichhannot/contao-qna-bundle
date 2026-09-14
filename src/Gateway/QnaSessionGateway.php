@@ -15,14 +15,15 @@ class QnaSessionGateway
     {
     }
 
-    public function find(int $sessionId): ?QnaSession
+    /** For writes, acquire this lock first inside the owning service transaction. */
+    public function find(int $sessionId, bool $forUpdate = false): ?QnaSession
     {
         $row = $this->connection->fetchAssociative(
             <<<'SQL'
                 SELECT id, title, alias, published, state, startedAt, endedAt
                 FROM tl_qna_session
                 WHERE id = :id
-                SQL,
+                SQL.($forUpdate ? ' FOR UPDATE' : ''),
             ['id' => $sessionId],
             ['id' => ParameterType::INTEGER],
         );

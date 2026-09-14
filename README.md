@@ -248,17 +248,94 @@ Existing votes remain intact. No answer text or completion timestamp is stored.
 
 Run the Contao database update before serving the changed code: the additive
 `tl_qna_question.answered` boolean defaults to false for existing and new rows.
-Marking and voting use transactions locking the same question row. Explicit
-answered/unanswered POST actions use Contao CSRF, ownership validation and the
+All interactive writes use the transaction and lock policy below. Explicit
+answered/unanswered POST actions retain Contao CSRF, ownership validation and the
 existing stage voter, with private, no-store 303 redirects retaining the sort.
 
-The database tests run explicitly against the DDEV project and remove their own
-fixtures:
+## Transactions and locking
+
+`QuestionService`, `VoteService`, `QuestionAnswerService`, and `SessionService`
+each own a DBAL transaction on the same connection as their gateways. The lock
+order is **session row → question row(s) → vote row(s)**. Acquire session locks
+before any child locks; callers composing operations across multiple sessions
+must acquire all session locks in ascending ID order first. Gateway mutations do
+not start transactions or enforce business rules themselves.
+
+Every service locks the session with `SELECT … FOR UPDATE`, then checks its
+publication and required state using the shared `QnaSession` assertions. The
+lock remains held through commit or rollback. Start/stop therefore coordinate
+with submission, voting, and both answered/unanswered actions. If closure wins,
+the waiting write rejects the closed session; if a write wins, it completes
+before closure. Existing authorization, error responses, and validation
+precedence are retained.
+
+Submission checks the clock and the member's latest question only after locking
+the session. Its current (locking) history read also works when a caller already
+has a repeatable-read snapshot. The session row exists even when that member has
+no previous question, so concurrent first submissions cannot both pass a positive
+cooldown. Question creation and the author's automatic vote commit or roll back
+together. A zero cooldown still permits repeated submissions.
+
+Voting performs an unlocked discovery read to resolve the session, then locks
+the session and re-reads the question under lock, checking ownership and answered
+state again. Answering uses the same order and retains its question lock.
+Duplicate votes still succeed idempotently through the unique `(pid, memberId)`
+index; a current vote-state read returns the committed count even after waiting.
+
+This deliberately serializes interactive writes within each session, including
+votes on different questions. Keep these transactions short and free of network
+I/O. There is no application-wide lock for interactive writes, although InnoDB
+range/gap locks can cause additional contention across sessions. This policy
+removes the session/question lock-order inversion; it is not a promise that
+arbitrary external transactions can never deadlock. Database lock timeouts and
+deadlocks propagate and roll back; no automatic replay is added.
+
+`MemberDataEraser` is maintenance, independent of publication/state: it locks all
+sessions in ascending ID order, then authored questions, before deleting votes
+and questions atomically. This intentionally pauses interactive writes across
+sessions during erasure and prevents a vote/question deletion lock inversion.
+It does not revoke authentication or prevent a still-authenticated client from
+creating new data after erasure; account lifecycle remains Contao's responsibility.
+
+Backend publication updates acquire the same InnoDB session-row lock even without
+calling these services. An unpublish committed first is seen by the locking read;
+an unpublish arriving second waits until the already validated write finishes.
+The guarantee is database serialization order, not HTTP request arrival order or
+retroactive cancellation. Standard backend deletion/cascades, custom SQL and
+other extensions are not made into atomic service transactions by this policy;
+code composing such writes must follow the same ordering. Use InnoDB tables and
+one shared connection; an outer transaction retains locks until its own completion.
+No schema migration is introduced by this locking change.
+
+## Database concurrency tests
+
+The integration suite is opt-in and requires a disposable, migrated MySQL/MariaDB
+InnoDB database, PHP `pdo_mysql`, `pcntl` and `posix`. It uses separate processes
+and connections, waits for an actual `INNODB_TRX` lock wait on the session, then
+releases the first transaction and checks persisted outcomes. The observer needs
+`PROCESS` privilege; the service connections use the normal database account.
+The suite removes its own fixtures, but a forcibly killed runner may need cleanup.
+
+From a configured DDEV project directory (locally, `contao0507.contao`):
 
 ```bash
-ddev exec -d /home/dev/Kunden/github/contao-qna-bundle vendor/bin/phpunit tests/Integration
+ddev exec -d /path/to/contao-qna-bundle env \
+  QNA_DATABASE_TESTS=1 \
+  QNA_TEST_OBSERVER_USER=root QNA_TEST_OBSERVER_PASSWORD=root \
+  vendor/bin/phpunit tests/Integration
 ```
 
-Run this command from the `contao0507.contao` project directory. The integration
-suite skips other environments and requires PHP's `pcntl` extension to exercise
-both orderings of concurrent marking and voting.
+The bundle path must be accessible inside that container. Outside DDEV, run the
+same PHPUnit command with the environment variables set for your test database.
+`QNA_TEST_DB_HOST`, `QNA_TEST_DB_PORT`, `QNA_TEST_DB_NAME`, `QNA_TEST_DB_USER`, and
+`QNA_TEST_DB_PASSWORD` are configurable (defaults: `db`, `3306`, `db`, `db`, `db`).
+The observer uses the same host/database and defaults to the service credentials;
+override its user/password as above when those lack `PROCESS`. No project name
+is hardcoded. Tests explicitly exercise repeatable-read isolation, including
+pre-existing snapshots for submission and duplicate voting.
+
+Coverage includes cooldown races with and without previous questions; closure
+before/after submission, voting, answering and unanswering; both answer/vote
+orderings; concurrent duplicate votes; start versus submission; backend
+unpublication orderings; and a real unique-constraint failure during automatic
+author-vote insertion, proving rollback of both the question and vote.
