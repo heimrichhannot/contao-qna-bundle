@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace HeimrichHannot\QnaBundle\Dto;
+namespace HeimrichHannot\QnaBundle\Model;
 
-final readonly class QnaVoteState
+final readonly class VoteState
 {
     public function __construct(
         public int $questionId,

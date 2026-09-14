@@ -2,13 +2,17 @@ services:
     _defaults:
         autoconfigure: true
         autowire: true
-        bind:
-            $pollingInterval: '%contao_qna.polling_interval%'
-            $maxQuestionLength: '%contao_qna.max_question_length%'
-            $questionCooldown: '%contao_qna.question_cooldown%'
 
     HeimrichHannot\QnaBundle\:
         resource: '../src/'
         exclude:
             - '../src/ContaoManager/'
             - '../src/HeimrichHannotQnaBundle.php'
+
+    HeimrichHannot\QnaBundle\Configuration\QnaOptions:
+        arguments:
+            $pollingInterval: '%contao_qna.polling_interval%'
+            $maxQuestionLength: '%contao_qna.max_question_length%'
+            $questionCooldown: '%contao_qna.question_cooldown%'
+            $idlePollingIntervalMultiplier: '%contao_qna.idle_polling_interval_multiplier%'
+            $maxPollingIntervalMultiplier: '%contao_qna.max_polling_interval_multiplier%'

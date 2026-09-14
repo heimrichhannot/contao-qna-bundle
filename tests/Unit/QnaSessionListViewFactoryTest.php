@@ -6,8 +6,8 @@ namespace HeimrichHannot\QnaBundle\Tests\Unit;
 
 use Contao\CoreBundle\Routing\ContentUrlGenerator;
 use Contao\PageModel;
-use HeimrichHannot\QnaBundle\Dto\QnaSession;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
+use HeimrichHannot\QnaBundle\Model\Session;
 use HeimrichHannot\QnaBundle\View\QnaSessionListViewFactory;
 use PHPUnit\Framework\TestCase;
 
@@ -23,7 +23,7 @@ final class QnaSessionListViewFactoryTest extends TestCase
             ->willReturn('/question-sessions/mobility');
 
         $items = (new QnaSessionListViewFactory($urlGenerator))->create([
-            new QnaSession(7, 'Mobility', 'mobility', true, SessionState::WAITING, null, null),
+            new Session(7, 'Mobility', 'mobility', true, SessionState::WAITING, null, null),
         ], $page);
 
         self::assertCount(1, $items);

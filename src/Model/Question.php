@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace HeimrichHannot\QnaBundle\Dto;
+namespace HeimrichHannot\QnaBundle\Model;
 
-final readonly class QnaQuestion
+final readonly class Question
 {
     public function __construct(
         public int $id,

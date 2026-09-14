@@ -11,9 +11,10 @@ use Contao\CoreBundle\Exception\PageNotFoundException;
 use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\CoreBundle\Twig\FragmentTemplate;
 use Contao\Input;
-use HeimrichHannot\QnaBundle\Dto\QnaSession;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
-use HeimrichHannot\QnaBundle\View\QnaReaderViewFactory;
+use HeimrichHannot\QnaBundle\Model\Session;
+use HeimrichHannot\QnaBundle\Service\PollingPolicy;
+use HeimrichHannot\QnaBundle\View\ReaderViewFactory;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -24,9 +25,9 @@ class QnaSessionReaderController extends AbstractContentElementController
     public function __construct(
         private readonly ContaoFramework $framework,
         private readonly QnaSessionGateway $sessionGateway,
-        private readonly QnaReaderViewFactory $viewFactory,
+        private readonly ReaderViewFactory $viewFactory,
         private readonly UrlGeneratorInterface $urlGenerator,
-        private readonly int $pollingInterval,
+        private readonly PollingPolicy $pollingPolicy,
     ) {
     }
 
@@ -48,13 +49,13 @@ class QnaSessionReaderController extends AbstractContentElementController
         $template->set('questions_frame_src', $this->urlGenerator->generate('contao_qna_reader_frame', [
             'sessionId' => $session->id,
         ]));
-        $template->set('polling_interval', $this->pollingInterval);
-        $template->set('polling_max_interval', $this->pollingInterval * 16);
+        $template->set('polling_interval', $this->pollingPolicy->baseInterval());
+        $template->set('polling_max_interval', $this->pollingPolicy->maxInterval());
 
         return $template->getResponse();
     }
 
-    protected function resolveSession(): QnaSession
+    protected function resolveSession(): Session
     {
         $this->framework->initialize();
 
@@ -68,7 +69,7 @@ class QnaSessionReaderController extends AbstractContentElementController
 
         $session = $this->sessionGateway->findPublishedByAlias($alias);
 
-        if (!$session instanceof QnaSession) {
+        if (!$session instanceof Session) {
             throw new PageNotFoundException();
         }
 

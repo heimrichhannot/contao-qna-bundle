@@ -17,9 +17,10 @@ use Contao\FrontendIndex;
 use Contao\LayoutModel;
 use Contao\PageModel;
 use Contao\PageRegular;
-use HeimrichHannot\QnaBundle\Dto\QnaSession;
 use HeimrichHannot\QnaBundle\Enum\QuestionSort;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
+use HeimrichHannot\QnaBundle\Model\Session;
+use HeimrichHannot\QnaBundle\Service\PollingPolicy;
 use Symfony\Cmf\Component\Routing\RouteObjectInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -39,7 +40,7 @@ class QnaStageController extends AbstractPageController
         private readonly QnaSessionGateway $sessionGateway,
         private readonly UrlGeneratorInterface $urlGenerator,
         private readonly Environment $twig,
-        private readonly int $pollingInterval,
+        private readonly PollingPolicy $pollingPolicy,
     ) {
     }
 
@@ -150,7 +151,7 @@ class QnaStageController extends AbstractPageController
         if ('' === $arguments['alias']) {
             return $this->twig->render('@Contao/qna/stage_overview.html.twig', [
                 'sessions' => array_map(
-                    fn (QnaSession $session): array => [
+                    fn (Session $session): array => [
                         'id' => $session->id,
                         'title' => $session->title,
                         'state' => $session->state->value,
@@ -164,7 +165,7 @@ class QnaStageController extends AbstractPageController
 
         $session = $this->sessionGateway->findPublishedByAlias($arguments['alias']);
 
-        if (!$session instanceof QnaSession) {
+        if (!$session instanceof Session) {
             throw new PageNotFoundException();
         }
 
@@ -175,8 +176,8 @@ class QnaStageController extends AbstractPageController
                 'sessionId' => $session->id,
                 'sort' => $arguments['sort']->value,
             ]),
-            'polling_interval' => $this->pollingInterval,
-            'polling_max_interval' => $this->pollingInterval * 16,
+            'polling_interval' => $this->pollingPolicy->baseInterval(),
+            'polling_max_interval' => $this->pollingPolicy->maxInterval(),
         ]);
     }
 

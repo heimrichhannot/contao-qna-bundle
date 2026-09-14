@@ -6,22 +6,25 @@ namespace HeimrichHannot\QnaBundle\Tests\Unit;
 
 use Contao\CoreBundle\Csrf\ContaoCsrfTokenManager;
 use Contao\FrontendUser;
+use HeimrichHannot\QnaBundle\Configuration\QnaOptions;
 use HeimrichHannot\QnaBundle\Controller\QnaActionController;
-use HeimrichHannot\QnaBundle\Dto\QnaQuestion;
-use HeimrichHannot\QnaBundle\Dto\QnaSession;
 use HeimrichHannot\QnaBundle\Enum\QuestionSort;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
 use HeimrichHannot\QnaBundle\Gateway\LockedContextLoader;
 use HeimrichHannot\QnaBundle\Gateway\QnaQuestionGateway;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
 use HeimrichHannot\QnaBundle\Gateway\QnaVoteGateway;
+use HeimrichHannot\QnaBundle\Model\Question as QnaQuestion;
+use HeimrichHannot\QnaBundle\Model\Session as QnaSession;
 use HeimrichHannot\QnaBundle\Security\Voter\QnaSessionControlVoter;
 use HeimrichHannot\QnaBundle\Service\FrontendMemberProvider;
+use HeimrichHannot\QnaBundle\Service\PollingPolicy;
 use HeimrichHannot\QnaBundle\Service\QuestionService;
 use HeimrichHannot\QnaBundle\Service\SessionService;
 use HeimrichHannot\QnaBundle\Service\VoteService;
-use HeimrichHannot\QnaBundle\View\QnaFrameResponseFactory;
-use HeimrichHannot\QnaBundle\View\QnaReaderViewFactory;
+use HeimrichHannot\QnaBundle\View\ReaderViewFactory;
+use HeimrichHannot\QnaBundle\View\StageViewFactory;
+use HeimrichHannot\QnaBundle\View\TurboResponseFactory;
 use PHPUnit\Framework\TestCase;
 use Psr\Clock\ClockInterface;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -50,7 +53,7 @@ final class QnaActionControllerTest extends TestCase
             ->method('generate')
             ->with('contao_qna_stage_questions', ['sessionId' => 7, 'sort' => 'time'])
             ->willReturn('/_qna/stage/7/questions?sort=time');
-        $controller = new QnaActionController(
+        $controller = $this->createController(
             $this->uninitializedQuestionService(),
             $this->uninitializedVoteService(),
             new SessionService($gateway, new MockClock('@100'), $this->transactionConnection()),
@@ -91,19 +94,15 @@ final class QnaActionControllerTest extends TestCase
         $urlGenerator = $this->createStub(UrlGeneratorInterface::class);
         $urlGenerator->method('generate')->willReturn('/frame');
         $memberSecurity = $this->createStub(Security::class);
-        $responseFactory = new QnaFrameResponseFactory(
-            $twig,
+        $responseFactory = $this->createResponseFactory(
             $gateway,
             $questionGateway,
-            new FrontendMemberProvider($memberSecurity),
-            new QnaReaderViewFactory(),
-            $this->createStub(ContaoCsrfTokenManager::class),
-            $urlGenerator,
+            $memberSecurity,
             $security,
-            2500,
-            500,
+            $twig,
+            $urlGenerator,
         );
-        $controller = new QnaActionController(
+        $controller = $this->createController(
             $this->uninitializedQuestionService(),
             $this->uninitializedVoteService(),
             new SessionService($gateway, new MockClock('@150'), $this->transactionConnection()),
@@ -138,7 +137,7 @@ final class QnaActionControllerTest extends TestCase
             ->method('generate')
             ->with('contao_qna_stage_questions', ['sessionId' => 7, 'sort' => 'votes'])
             ->willReturn('/_qna/stage/7/questions?sort=votes');
-        $controller = new QnaActionController(
+        $controller = $this->createController(
             $this->uninitializedQuestionService(),
             $this->uninitializedVoteService(),
             new SessionService($gateway, new MockClock('@100'), $this->transactionConnection()),
@@ -167,7 +166,7 @@ final class QnaActionControllerTest extends TestCase
         $security->method('isGranted')->willReturn(true);
         $questionGateway = $this->createStub(QnaQuestionGateway::class);
         $responseFactory = $this->createResponseFactory($gateway, $questionGateway, $security, $security);
-        $controller = new QnaActionController(
+        $controller = $this->createController(
             $this->uninitializedQuestionService(),
             $this->uninitializedVoteService(),
             new SessionService($gateway, new MockClock('@150'), $this->transactionConnection()),
@@ -201,8 +200,7 @@ final class QnaActionControllerTest extends TestCase
             $questionGateway,
             new FrontendMemberProvider($memberSecurity),
             new MockClock('@150'),
-            500,
-            20,
+            $this->options(),
             $this->createStub(QnaVoteGateway::class),
             $this->transactionConnection(),
         );
@@ -211,7 +209,7 @@ final class QnaActionControllerTest extends TestCase
             ->method('generate')
             ->with('contao_qna_reader_frame', ['sessionId' => 7, 'resetQuestionForm' => 1])
             ->willReturn('/_qna/reader/7?resetQuestionForm=1');
-        $controller = new QnaActionController(
+        $controller = $this->createController(
             $questionService,
             $this->uninitializedVoteService(),
             new SessionService($gateway, new MockClock('@150'), $this->transactionConnection()),
@@ -242,12 +240,11 @@ final class QnaActionControllerTest extends TestCase
             $questionGateway,
             new FrontendMemberProvider($memberSecurity),
             new MockClock('@150'),
-            500,
-            20,
+            $this->options(),
             $this->createStub(QnaVoteGateway::class),
             $this->transactionConnection(),
         );
-        $controller = new QnaActionController(
+        $controller = $this->createController(
             $questionService,
             $this->uninitializedVoteService(),
             new SessionService($gateway, new MockClock('@150'), $this->transactionConnection()),
@@ -283,7 +280,7 @@ final class QnaActionControllerTest extends TestCase
             new MockClock('@150'),
             $this->transactionConnection(),
         );
-        $controller = new QnaActionController(
+        $controller = $this->createController(
             $this->uninitializedQuestionService(),
             $voteService,
             new SessionService($gateway, new MockClock('@150'), $this->transactionConnection()),
@@ -314,12 +311,11 @@ final class QnaActionControllerTest extends TestCase
             $questionGateway,
             new FrontendMemberProvider($memberSecurity),
             new MockClock('@150'),
-            500,
-            20,
+            $this->options(),
             $this->createStub(QnaVoteGateway::class),
             $this->transactionConnection(),
         );
-        $controller = new QnaActionController(
+        $controller = $this->createController(
             $questionService,
             $this->uninitializedVoteService(),
             new SessionService($gateway, new MockClock('@150'), $this->transactionConnection()),
@@ -347,7 +343,7 @@ final class QnaActionControllerTest extends TestCase
             ->method('isGranted')
             ->with(QnaSessionControlVoter::ATTRIBUTE, $session)
             ->willReturn(false);
-        $controller = new QnaActionController(
+        $controller = $this->createController(
             $this->uninitializedQuestionService(),
             $this->uninitializedVoteService(),
             new SessionService($gateway, $this->createStub(ClockInterface::class), $this->transactionConnection()),
@@ -376,7 +372,7 @@ final class QnaActionControllerTest extends TestCase
             $security->expects(self::once())->method('isGranted')->with(QnaSessionControlVoter::ATTRIBUTE, $session)->willReturn(true);
             $urls = $this->createMock(UrlGeneratorInterface::class);
             $urls->expects(self::once())->method('generate')->with('contao_qna_stage_questions', ['sessionId' => 7, 'sort' => 'time'])->willReturn('/stage?sort=time');
-            $controller = new QnaActionController(
+            $controller = $this->createController(
                 $this->uninitializedQuestionService(), $this->uninitializedVoteService(), new SessionService($sessions, new MockClock('@100'), $this->transactionConnection()),
                 $sessions, $this->uninitializedResponseFactory(), $security, $urls,
                 new \HeimrichHannot\QnaBundle\Service\QuestionAnswerService(new LockedContextLoader($sessions, $questions), $questions, $this->transactionConnection()),
@@ -402,7 +398,7 @@ final class QnaActionControllerTest extends TestCase
         $questions->expects(self::once())->method('findForStage')->with(7, QuestionSort::TIME)->willReturn([]);
         $security = $this->createStub(Security::class);
         $security->method('isGranted')->willReturn(true);
-        $controller = new QnaActionController(
+        $controller = $this->createController(
             $this->uninitializedQuestionService(), $this->uninitializedVoteService(), new SessionService($sessions, new MockClock('@100'), $this->transactionConnection()),
             $sessions, $this->createResponseFactory($sessions, $questions, $security, $security), $security, $this->createUrlGenerator(),
             new \HeimrichHannot\QnaBundle\Service\QuestionAnswerService(new LockedContextLoader($sessions, $questions), $questions, $this->transactionConnection()),
@@ -422,7 +418,7 @@ final class QnaActionControllerTest extends TestCase
         $questions->expects(self::never())->method('setAnswered');
         $security = $this->createStub(Security::class);
         $security->method('isGranted')->willReturn(true);
-        $controller = new QnaActionController(
+        $controller = $this->createController(
             $this->uninitializedQuestionService(), $this->uninitializedVoteService(), new SessionService($sessions, new MockClock('@100'), $this->transactionConnection()),
             $sessions, $this->uninitializedResponseFactory(), $security, $this->createUrlGenerator(),
             new \HeimrichHannot\QnaBundle\Service\QuestionAnswerService(new LockedContextLoader($sessions, $questions), $questions, $this->transactionConnection()),
@@ -440,7 +436,7 @@ final class QnaActionControllerTest extends TestCase
             $questions->expects(self::never())->method('find');
             $security = $this->createStub(Security::class);
             $security->method('isGranted')->willReturn(false);
-            $controller = new QnaActionController(
+            $controller = $this->createController(
                 $this->uninitializedQuestionService(), $this->uninitializedVoteService(), new SessionService($sessions, new MockClock('@100'), $this->transactionConnection()),
                 $sessions, $this->uninitializedResponseFactory(), $security, $this->createUrlGenerator(),
                 new \HeimrichHannot\QnaBundle\Service\QuestionAnswerService(new LockedContextLoader($sessions, $questions), $questions, $this->transactionConnection()),
@@ -472,9 +468,15 @@ final class QnaActionControllerTest extends TestCase
         return (new \ReflectionClass(VoteService::class))->newInstanceWithoutConstructor();
     }
 
-    private function uninitializedResponseFactory(): QnaFrameResponseFactory
+    private function uninitializedResponseFactory(): TestViewServices
     {
-        return (new \ReflectionClass(QnaFrameResponseFactory::class))->newInstanceWithoutConstructor();
+        return new TestViewServices(
+            (new \ReflectionClass(ReaderViewFactory::class))->newInstanceWithoutConstructor(),
+            (new \ReflectionClass(StageViewFactory::class))->newInstanceWithoutConstructor(),
+            new TurboResponseFactory(),
+            $this->createStub(ContaoCsrfTokenManager::class),
+            $this->pollingPolicy(),
+        );
     }
 
     private function createMemberSecurity(?int $memberId): Security
@@ -499,22 +501,67 @@ final class QnaActionControllerTest extends TestCase
         QnaQuestionGateway $questionGateway,
         Security $memberSecurity,
         Security $controlSecurity,
-    ): QnaFrameResponseFactory {
-        $twig = $this->createStub(Environment::class);
-        $twig->method('render')->willReturn('<turbo-frame></turbo-frame>');
+        ?Environment $twig = null,
+        ?UrlGeneratorInterface $urlGenerator = null,
+    ): TestViewServices {
+        if (null === $twig) {
+            $twig = $this->createStub(Environment::class);
+            $twig->method('render')->willReturn('<turbo-frame></turbo-frame>');
+        }
+        $tokenManager = $this->createStub(ContaoCsrfTokenManager::class);
+        $urlGenerator ??= $this->createUrlGenerator();
 
-        return new QnaFrameResponseFactory(
-            $twig,
-            $sessionGateway,
-            $questionGateway,
-            new FrontendMemberProvider($memberSecurity),
-            new QnaReaderViewFactory(),
-            $this->createStub(ContaoCsrfTokenManager::class),
-            $this->createUrlGenerator(),
-            $controlSecurity,
-            2500,
-            500,
+        return new TestViewServices(
+            new ReaderViewFactory(
+                $twig,
+                $questionGateway,
+                new FrontendMemberProvider($memberSecurity),
+                $tokenManager,
+                $urlGenerator,
+                $this->options(),
+                $this->pollingPolicy(),
+            ),
+            new StageViewFactory($twig, $questionGateway, $urlGenerator),
+            new TurboResponseFactory(),
+            $tokenManager,
+            $this->pollingPolicy(),
         );
+    }
+
+    private function createController(
+        QuestionService $questionService,
+        VoteService $voteService,
+        SessionService $sessionService,
+        QnaSessionGateway $sessionGateway,
+        TestViewServices $viewServices,
+        Security $security,
+        UrlGeneratorInterface $urlGenerator,
+        \HeimrichHannot\QnaBundle\Service\QuestionAnswerService $answerService,
+    ): QnaActionController {
+        return new QnaActionController(
+            $questionService,
+            $voteService,
+            $sessionService,
+            $sessionGateway,
+            $viewServices->reader,
+            $viewServices->stage,
+            $viewServices->response,
+            $viewServices->csrfTokenManager,
+            $viewServices->pollingPolicy,
+            $security,
+            $urlGenerator,
+            $answerService,
+        );
+    }
+
+    private function options(): QnaOptions
+    {
+        return new QnaOptions(2500, 500, 20, 4, 16);
+    }
+
+    private function pollingPolicy(): PollingPolicy
+    {
+        return new PollingPolicy($this->options());
     }
 
     private function createUrlGenerator(): UrlGeneratorInterface
@@ -523,5 +570,17 @@ final class QnaActionControllerTest extends TestCase
         $urlGenerator->method('generate')->willReturn('/frame');
 
         return $urlGenerator;
+    }
+}
+
+final readonly class TestViewServices
+{
+    public function __construct(
+        public ReaderViewFactory $reader,
+        public StageViewFactory $stage,
+        public TurboResponseFactory $response,
+        public ContaoCsrfTokenManager $csrfTokenManager,
+        public PollingPolicy $pollingPolicy,
+    ) {
     }
 }

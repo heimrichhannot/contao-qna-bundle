@@ -6,9 +6,9 @@ namespace HeimrichHannot\QnaBundle\Gateway;
 
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
-use HeimrichHannot\QnaBundle\Dto\QnaQuestion;
-use HeimrichHannot\QnaBundle\Dto\QnaQuestionListItem;
 use HeimrichHannot\QnaBundle\Enum\QuestionSort;
+use HeimrichHannot\QnaBundle\Model\Question;
+use HeimrichHannot\QnaBundle\Model\QuestionListItem;
 
 class QnaQuestionGateway
 {
@@ -33,7 +33,7 @@ class QnaQuestionGateway
     {
     }
 
-    public function find(int $questionId, bool $forUpdate = false): ?QnaQuestion
+    public function find(int $questionId, bool $forUpdate = false): ?Question
     {
         $row = $this->connection->fetchAssociative(
             <<<'SQL'
@@ -51,7 +51,7 @@ class QnaQuestionGateway
 
         $row = new Row($row);
 
-        return new QnaQuestion(
+        return new Question(
             $row->int('id'),
             $row->int('pid'),
             $row->int('memberId'),
@@ -115,7 +115,7 @@ class QnaQuestionGateway
     /**
      * Loads the complete question list in exactly one database query.
      *
-     * @return list<QnaQuestionListItem>
+     * @return list<QuestionListItem>
      */
     public function findForSession(
         int $sessionId,
@@ -128,7 +128,7 @@ class QnaQuestionGateway
     /**
      * Loads the stage question list without member-specific vote state.
      *
-     * @return list<QnaQuestionListItem>
+     * @return list<QuestionListItem>
      */
     public function findForStage(int $sessionId, QuestionSort $sort = QuestionSort::VOTES): array
     {
@@ -147,11 +147,11 @@ class QnaQuestionGateway
     /**
      * @param array<string, mixed> $row
      */
-    private function hydrateListItem(array $row): QnaQuestionListItem
+    private function hydrateListItem(array $row): QuestionListItem
     {
         $row = new Row($row);
 
-        return new QnaQuestionListItem(
+        return new QuestionListItem(
             $row->int('id'),
             $row->int('pid'),
             $row->int('memberId'),
@@ -163,7 +163,7 @@ class QnaQuestionGateway
         );
     }
 
-    /** @return list<QnaQuestionListItem> */
+    /** @return list<QuestionListItem> */
     private function findList(int $sessionId, ?int $memberId, QuestionSort $sort): array
     {
         // The interpolated ORDER BY fragment is defined by QuestionSort; no request value reaches the SQL template.

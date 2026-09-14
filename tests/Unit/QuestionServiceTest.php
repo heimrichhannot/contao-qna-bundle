@@ -6,7 +6,7 @@ namespace HeimrichHannot\QnaBundle\Tests\Unit;
 
 use Contao\FrontendUser;
 use Doctrine\DBAL\Connection;
-use HeimrichHannot\QnaBundle\Dto\QnaSession;
+use HeimrichHannot\QnaBundle\Configuration\QnaOptions;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
 use HeimrichHannot\QnaBundle\Exception\AuthenticationRequiredException;
 use HeimrichHannot\QnaBundle\Exception\EmptyQuestionException;
@@ -17,6 +17,7 @@ use HeimrichHannot\QnaBundle\Exception\SessionNotPublishedException;
 use HeimrichHannot\QnaBundle\Gateway\QnaQuestionGateway;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
 use HeimrichHannot\QnaBundle\Gateway\QnaVoteGateway;
+use HeimrichHannot\QnaBundle\Model\Session;
 use HeimrichHannot\QnaBundle\Service\FrontendMemberProvider;
 use HeimrichHannot\QnaBundle\Service\QuestionService;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -160,16 +161,15 @@ final class QuestionServiceTest extends TestCase
             $questionGateway,
             new FrontendMemberProvider($security),
             $this->clock(),
-            $maxQuestionLength,
-            20,
+            new QnaOptions(2500, $maxQuestionLength, 20, 4, 16),
             $voteGateway,
             $connection,
         );
     }
 
-    private function session(SessionState $state, bool $published = true): QnaSession
+    private function session(SessionState $state, bool $published = true): Session
     {
-        return new QnaSession(12, 'Session', 'session', $published, $state, null, null);
+        return new Session(12, 'Session', 'session', $published, $state, null, null);
     }
 
     private function clock(): ClockInterface

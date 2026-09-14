@@ -40,11 +40,15 @@ contao_qna:
     polling_interval: 2500
     max_question_length: 500
     question_cooldown: 20
+    idle_polling_interval_multiplier: 4
+    max_polling_interval_multiplier: 16
 ```
 
 The values shown are the defaults. `polling_interval` and
 `question_cooldown` are milliseconds and seconds respectively. Waiting and
-closed sessions poll at four times the configured base interval.
+closed sessions poll at `idle_polling_interval_multiplier` times the configured
+base interval. Client-side retry backoff is capped at
+`max_polling_interval_multiplier` times the base interval.
 
 ## Contao setup
 

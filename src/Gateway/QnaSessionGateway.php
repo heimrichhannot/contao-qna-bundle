@@ -6,8 +6,8 @@ namespace HeimrichHannot\QnaBundle\Gateway;
 
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
-use HeimrichHannot\QnaBundle\Dto\QnaSession;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
+use HeimrichHannot\QnaBundle\Model\Session;
 
 class QnaSessionGateway
 {
@@ -16,7 +16,7 @@ class QnaSessionGateway
     }
 
     /** For writes, acquire this lock first inside the owning service transaction. */
-    public function find(int $sessionId, bool $forUpdate = false): ?QnaSession
+    public function find(int $sessionId, bool $forUpdate = false): ?Session
     {
         $row = $this->connection->fetchAssociative(
             <<<'SQL'
@@ -31,7 +31,7 @@ class QnaSessionGateway
         return false === $row ? null : $this->hydrate($row);
     }
 
-    public function findPublished(int $sessionId): ?QnaSession
+    public function findPublished(int $sessionId): ?Session
     {
         $row = $this->connection->fetchAssociative(
             <<<'SQL'
@@ -46,7 +46,7 @@ class QnaSessionGateway
         return false === $row ? null : $this->hydrate($row);
     }
 
-    public function findPublishedByAlias(string $alias): ?QnaSession
+    public function findPublishedByAlias(string $alias): ?Session
     {
         $row = $this->connection->fetchAssociative(
             <<<'SQL'
@@ -62,7 +62,7 @@ class QnaSessionGateway
     }
 
     /**
-     * @return list<QnaSession>
+     * @return list<Session>
      */
     public function findAllPublished(): array
     {
@@ -129,11 +129,11 @@ class QnaSessionGateway
     /**
      * @param array<string, mixed> $row
      */
-    private function hydrate(array $row): QnaSession
+    private function hydrate(array $row): Session
     {
         $row = new Row($row);
 
-        return new QnaSession(
+        return new Session(
             $row->int('id'),
             $row->string('title'),
             $row->string('alias'),

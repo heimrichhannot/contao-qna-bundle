@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace HeimrichHannot\QnaBundle\Dto;
+namespace HeimrichHannot\QnaBundle\View\Model;
 
-final readonly class QnaReaderView
+final readonly class ReaderView
 {
     public function __construct(
         public int $sessionId,

@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace HeimrichHannot\QnaBundle\Tests\Unit;
 
-use HeimrichHannot\QnaBundle\Dto\QnaSession;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
 use HeimrichHannot\QnaBundle\Exception\InvalidSessionTransitionException;
 use HeimrichHannot\QnaBundle\Exception\SessionNotPublishedException;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
+use HeimrichHannot\QnaBundle\Model\Session;
 use HeimrichHannot\QnaBundle\Service\SessionService;
 use PHPUnit\Framework\TestCase;
 use Psr\Clock\ClockInterface;
@@ -70,9 +70,9 @@ final class SessionServiceTest extends TestCase
         return $connection;
     }
 
-    private function session(SessionState $state, bool $published = true): QnaSession
+    private function session(SessionState $state, bool $published = true): Session
     {
-        return new QnaSession(12, 'Session', 'session', $published, $state, null, null);
+        return new Session(12, 'Session', 'session', $published, $state, null, null);
     }
 
     private function clock(): ClockInterface

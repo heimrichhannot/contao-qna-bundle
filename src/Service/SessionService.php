@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace HeimrichHannot\QnaBundle\Service;
 
 use Doctrine\DBAL\Connection;
-use HeimrichHannot\QnaBundle\Dto\QnaSession;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
 use HeimrichHannot\QnaBundle\Exception\InvalidSessionTransitionException;
 use HeimrichHannot\QnaBundle\Exception\SessionNotFoundException;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
+use HeimrichHannot\QnaBundle\Model\Session;
 use Psr\Clock\ClockInterface;
 
 final readonly class SessionService
@@ -21,9 +21,9 @@ final readonly class SessionService
     ) {
     }
 
-    public function start(int $sessionId): QnaSession
+    public function start(int $sessionId): Session
     {
-        return $this->connection->transactional(function () use ($sessionId): QnaSession {
+        return $this->connection->transactional(function () use ($sessionId): Session {
             $session = $this->lockPublishedSession($sessionId);
 
             if (SessionState::WAITING !== $session->state) {
@@ -42,9 +42,9 @@ final readonly class SessionService
         });
     }
 
-    public function stop(int $sessionId): QnaSession
+    public function stop(int $sessionId): Session
     {
-        return $this->connection->transactional(function () use ($sessionId): QnaSession {
+        return $this->connection->transactional(function () use ($sessionId): Session {
             $session = $this->lockPublishedSession($sessionId);
 
             if (SessionState::OPEN !== $session->state) {
@@ -63,7 +63,7 @@ final readonly class SessionService
         });
     }
 
-    private function lockPublishedSession(int $sessionId): QnaSession
+    private function lockPublishedSession(int $sessionId): Session
     {
         $session = $this->sessionGateway->find($sessionId, true)
             ?? throw new SessionNotFoundException($sessionId);

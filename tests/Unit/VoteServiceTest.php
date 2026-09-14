@@ -6,9 +6,6 @@ namespace HeimrichHannot\QnaBundle\Tests\Unit;
 
 use Contao\FrontendUser;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
-use HeimrichHannot\QnaBundle\Dto\QnaQuestion;
-use HeimrichHannot\QnaBundle\Dto\QnaSession;
-use HeimrichHannot\QnaBundle\Dto\QnaVoteState;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
 use HeimrichHannot\QnaBundle\Exception\SessionNotOpenException;
 use HeimrichHannot\QnaBundle\Exception\SessionNotPublishedException;
@@ -16,6 +13,9 @@ use HeimrichHannot\QnaBundle\Gateway\LockedContextLoader;
 use HeimrichHannot\QnaBundle\Gateway\QnaQuestionGateway;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
 use HeimrichHannot\QnaBundle\Gateway\QnaVoteGateway;
+use HeimrichHannot\QnaBundle\Model\Question;
+use HeimrichHannot\QnaBundle\Model\Session;
+use HeimrichHannot\QnaBundle\Model\VoteState;
 use HeimrichHannot\QnaBundle\Service\FrontendMemberProvider;
 use HeimrichHannot\QnaBundle\Service\VoteService;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -30,7 +30,7 @@ final class VoteServiceTest extends TestCase
         $sessions = $this->createStub(QnaSessionGateway::class);
         $sessions->method('find')->willReturn($this->session());
         $questions = $this->createMock(QnaQuestionGateway::class);
-        $questions->expects(self::once())->method('find')->with(23, true)->willReturn(new QnaQuestion(23, 12, 7, 'Question', 100, true));
+        $questions->expects(self::once())->method('find')->with(23, true)->willReturn(new Question(23, 12, 7, 'Question', 100, true));
         $votes = $this->createMock(QnaVoteGateway::class);
         $votes->expects(self::never())->method('create');
         $this->expectException(\HeimrichHannot\QnaBundle\Exception\QuestionAnsweredException::class);
@@ -42,7 +42,7 @@ final class VoteServiceTest extends TestCase
     {
         [$sessionGateway, $questionGateway, $voteGateway] = $this->gatewaysForOpenQuestion();
         $voteGateway->expects(self::once())->method('create')->with(23, 42, 1_700_000_000);
-        $voteGateway->expects(self::once())->method('getState')->with(23, 42)->willReturn(new QnaVoteState(23, 3, true));
+        $voteGateway->expects(self::once())->method('getState')->with(23, 42)->willReturn(new VoteState(23, 3, true));
 
         $state = $this->service($sessionGateway, $questionGateway, $voteGateway)->vote(12, 23);
 
@@ -56,7 +56,7 @@ final class VoteServiceTest extends TestCase
         $voteGateway->expects(self::once())
             ->method('create')
             ->willThrowException($this->createStub(UniqueConstraintViolationException::class));
-        $voteGateway->expects(self::once())->method('getState')->with(23, 42)->willReturn(new QnaVoteState(23, 3, true));
+        $voteGateway->expects(self::once())->method('getState')->with(23, 42)->willReturn(new VoteState(23, 3, true));
 
         $state = $this->service($sessionGateway, $questionGateway, $voteGateway)->vote(12, 23);
 
@@ -70,7 +70,7 @@ final class VoteServiceTest extends TestCase
         $sessionGateway->method('find')->willReturn($this->session());
         $questionGateway = $this->createStub(QnaQuestionGateway::class);
         $questionGateway->method('find')->willReturnCallback(
-            static fn (int $id): QnaQuestion => new QnaQuestion($id, 12, 7, 'Question', 100),
+            static fn (int $id): Question => new Question($id, 12, 7, 'Question', 100),
         );
         $created = [];
         $voteGateway = $this->createStub(QnaVoteGateway::class);
@@ -80,7 +80,7 @@ final class VoteServiceTest extends TestCase
             },
         );
         $voteGateway->method('getState')->willReturnCallback(
-            static fn (int $questionId): QnaVoteState => new QnaVoteState($questionId, 1, true),
+            static fn (int $questionId): VoteState => new VoteState($questionId, 1, true),
         );
         $service = $this->service($sessionGateway, $questionGateway, $voteGateway);
 
@@ -95,7 +95,7 @@ final class VoteServiceTest extends TestCase
         $sessionGateway = $this->createStub(QnaSessionGateway::class);
         $sessionGateway->method('find')->willReturn($this->session());
         $questionGateway = $this->createStub(QnaQuestionGateway::class);
-        $questionGateway->method('find')->willReturn(new QnaQuestion(23, 12, 7, 'Question', 100));
+        $questionGateway->method('find')->willReturn(new Question(23, 12, 7, 'Question', 100));
         $created = [];
         $voteGateway = $this->createStub(QnaVoteGateway::class);
         $voteGateway->method('create')->willReturnCallback(
@@ -104,7 +104,7 @@ final class VoteServiceTest extends TestCase
             },
         );
         $voteGateway->method('getState')->willReturnCallback(
-            static fn (int $questionId): QnaVoteState => new QnaVoteState($questionId, 1, true),
+            static fn (int $questionId): VoteState => new VoteState($questionId, 1, true),
         );
 
         $this->service($sessionGateway, $questionGateway, $voteGateway, 42)->vote(12, 23);
@@ -151,7 +151,7 @@ final class VoteServiceTest extends TestCase
         $sessionGateway = $this->createStub(QnaSessionGateway::class);
         $sessionGateway->method('find')->willReturn($this->session($state, $published));
         $questionGateway = $this->createStub(QnaQuestionGateway::class);
-        $questionGateway->method('find')->willReturn(new QnaQuestion(23, 12, 7, 'Question', 100));
+        $questionGateway->method('find')->willReturn(new Question(23, 12, 7, 'Question', 100));
 
         return [$sessionGateway, $questionGateway, $this->createMock(QnaVoteGateway::class)];
     }
@@ -176,9 +176,9 @@ final class VoteServiceTest extends TestCase
         );
     }
 
-    private function session(SessionState $state = SessionState::OPEN, bool $published = true): QnaSession
+    private function session(SessionState $state = SessionState::OPEN, bool $published = true): Session
     {
-        return new QnaSession(12, 'Session', 'session', $published, $state, null, null);
+        return new Session(12, 'Session', 'session', $published, $state, null, null);
     }
 
     private function clock(): ClockInterface

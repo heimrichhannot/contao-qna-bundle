@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace HeimrichHannot\QnaBundle\Tests\Unit;
 
 use Doctrine\DBAL\Connection;
-use HeimrichHannot\QnaBundle\Dto\QnaQuestion;
-use HeimrichHannot\QnaBundle\Dto\QnaSession;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
 use HeimrichHannot\QnaBundle\Exception\QuestionNotFoundException;
 use HeimrichHannot\QnaBundle\Exception\SessionNotFoundException;
@@ -15,6 +13,8 @@ use HeimrichHannot\QnaBundle\Exception\SessionNotPublishedException;
 use HeimrichHannot\QnaBundle\Gateway\LockedContextLoader;
 use HeimrichHannot\QnaBundle\Gateway\QnaQuestionGateway;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
+use HeimrichHannot\QnaBundle\Model\Question;
+use HeimrichHannot\QnaBundle\Model\Session;
 use HeimrichHannot\QnaBundle\Service\QuestionAnswerService;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -45,35 +45,35 @@ final class QuestionAnswerServiceTest extends TestCase
         );
         $questions = $this->createMock(QnaQuestionGateway::class);
         $questions->expects(self::once())->method('find')->with(23, true)->willReturnCallback(
-            static function () use ($transaction, $before): QnaQuestion {
+            static function () use ($transaction, $before): Question {
                 self::assertTrue($transaction->active);
 
-                return new QnaQuestion(23, 7, 1, 'Question', 100, $before);
+                return new Question(23, 7, 1, 'Question', 100, $before);
             },
         );
         $questions->expects($before === $after ? self::never() : self::once())->method('setAnswered')->with(23, $after);
         $sessions = $this->createStub(QnaSessionGateway::class);
-        $sessions->method('find')->willReturn(new QnaSession(7, 'Session', 'session', true, SessionState::OPEN, 100, null));
+        $sessions->method('find')->willReturn(new Session(7, 'Session', 'session', true, SessionState::OPEN, 100, null));
 
         (new QuestionAnswerService(new LockedContextLoader($sessions, $questions), $questions, $connection))->setAnswered(7, 23, $after);
     }
 
-    /** @return iterable<string, array{?QnaQuestion, ?QnaSession, class-string<\Throwable>}> */
+    /** @return iterable<string, array{?Question, ?Session, class-string<\Throwable>}> */
     public static function rejections(): iterable
     {
-        $question = new QnaQuestion(23, 7, 1, 'Question', 100);
+        $question = new Question(23, 7, 1, 'Question', 100);
         yield 'missing question' => [null, null, QuestionNotFoundException::class];
-        yield 'wrong session' => [new QnaQuestion(23, 8, 1, 'Question', 100), null, QuestionNotFoundException::class];
+        yield 'wrong session' => [new Question(23, 8, 1, 'Question', 100), null, QuestionNotFoundException::class];
         yield 'missing session' => [$question, null, SessionNotFoundException::class];
-        yield 'unpublished' => [$question, new QnaSession(7, '', '', false, SessionState::OPEN, 100, null), SessionNotPublishedException::class];
+        yield 'unpublished' => [$question, new Session(7, '', '', false, SessionState::OPEN, 100, null), SessionNotPublishedException::class];
         foreach ([SessionState::WAITING, SessionState::CLOSED] as $state) {
-            yield $state->value => [$question, new QnaSession(7, '', '', true, $state, null, null), SessionNotOpenException::class];
+            yield $state->value => [$question, new Session(7, '', '', true, $state, null, null), SessionNotOpenException::class];
         }
     }
 
     /** @param class-string<\Throwable> $exception */
     #[DataProvider('rejections')]
-    public function testRejectedChangesNeverWrite(?QnaQuestion $question, ?QnaSession $session, string $exception): void
+    public function testRejectedChangesNeverWrite(?Question $question, ?Session $session, string $exception): void
     {
         $connection = $this->createStub(Connection::class);
         $connection->method('transactional')->willReturnCallback(static fn (callable $callback): mixed => $callback());

@@ -4,17 +4,21 @@ declare(strict_types=1);
 
 namespace HeimrichHannot\QnaBundle\Controller;
 
+use Contao\CoreBundle\Csrf\ContaoCsrfTokenManager;
 use Contao\CoreBundle\Exception\PageNotFoundException;
-use HeimrichHannot\QnaBundle\Dto\QnaSession;
 use HeimrichHannot\QnaBundle\Enum\QuestionSort;
 use HeimrichHannot\QnaBundle\Exception\QnaDomainException;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
+use HeimrichHannot\QnaBundle\Model\Session;
 use HeimrichHannot\QnaBundle\Security\Voter\QnaSessionControlVoter;
+use HeimrichHannot\QnaBundle\Service\PollingPolicy;
 use HeimrichHannot\QnaBundle\Service\QuestionAnswerService;
 use HeimrichHannot\QnaBundle\Service\QuestionService;
 use HeimrichHannot\QnaBundle\Service\SessionService;
 use HeimrichHannot\QnaBundle\Service\VoteService;
-use HeimrichHannot\QnaBundle\View\QnaFrameResponseFactory;
+use HeimrichHannot\QnaBundle\View\ReaderViewFactory;
+use HeimrichHannot\QnaBundle\View\StageViewFactory;
+use HeimrichHannot\QnaBundle\View\TurboResponseFactory;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -29,7 +33,11 @@ final readonly class QnaActionController
         private VoteService $voteService,
         private SessionService $sessionService,
         private QnaSessionGateway $sessionGateway,
-        private QnaFrameResponseFactory $responseFactory,
+        private ReaderViewFactory $readerViewFactory,
+        private StageViewFactory $stageViewFactory,
+        private TurboResponseFactory $responseFactory,
+        private ContaoCsrfTokenManager $csrfTokenManager,
+        private PollingPolicy $pollingPolicy,
         private Security $security,
         private UrlGeneratorInterface $urlGenerator,
         private QuestionAnswerService $answerService,
@@ -52,11 +60,13 @@ final readonly class QnaActionController
         } catch (QnaDomainException $exception) {
             $this->throwIfNotFound($exception);
 
-            return $this->responseFactory->renderReaderControls(
-                $sessionId,
-                $exception->translationKey(),
+            return $this->responseFactory->html(
+                $this->readerViewFactory->renderControls(
+                    $this->requirePublishedSession($sessionId),
+                    $exception->translationKey(),
+                    $question,
+                ),
                 $exception->statusCode(),
-                $question,
             );
         }
 
@@ -80,9 +90,11 @@ final readonly class QnaActionController
         } catch (QnaDomainException $exception) {
             $this->throwIfNotFound($exception);
 
-            return $this->responseFactory->renderReaderQuestions(
-                $sessionId,
-                $exception->translationKey(),
+            return $this->responseFactory->html(
+                $this->readerViewFactory->renderQuestions(
+                    $this->requirePublishedSession($sessionId),
+                    $exception->translationKey(),
+                ),
                 $exception->statusCode(),
             );
         }
@@ -107,7 +119,7 @@ final readonly class QnaActionController
         } catch (QnaDomainException $exception) {
             $this->throwIfNotFound($exception);
 
-            return $this->responseFactory->renderStage(
+            return $this->renderStage(
                 $session->id,
                 $sort,
                 $exception->translationKey(),
@@ -138,7 +150,7 @@ final readonly class QnaActionController
         } catch (QnaDomainException $exception) {
             $this->throwIfNotFound($exception);
 
-            return $this->responseFactory->renderStage(
+            return $this->renderStage(
                 $session->id,
                 $sort,
                 $exception->translationKey(),
@@ -186,19 +198,53 @@ final readonly class QnaActionController
         } catch (QnaDomainException $exception) {
             $this->throwIfNotFound($exception);
 
-            return $this->responseFactory->renderStage($sessionId, $sort, $exception->translationKey(), $exception->statusCode());
+            return $this->renderStage($sessionId, $sort, $exception->translationKey(), $exception->statusCode());
         }
 
         return $this->redirectToRoute('contao_qna_stage_questions', ['sessionId' => $sessionId, 'sort' => $sort->value]);
     }
 
-    private function requireControl(int $sessionId): QnaSession
+    private function renderStage(
+        int $sessionId,
+        QuestionSort $sort,
+        ?string $errorTranslationKey = null,
+        int $statusCode = Response::HTTP_OK,
+    ): Response {
+        $session = $this->requirePublishedSession($sessionId);
+        $view = $this->stageViewFactory->create(
+            $session,
+            $sort,
+            $this->security->isGranted(QnaSessionControlVoter::ATTRIBUTE, $session),
+            $errorTranslationKey,
+        );
+        $requestToken = $view->showStartButton || $view->showStopButton
+            ? $this->csrfTokenManager->getDefaultTokenValue()
+            : null;
+
+        return $this->responseFactory->html(
+            $this->stageViewFactory->renderFrame(
+                $view,
+                $requestToken,
+                $this->pollingPolicy->intervalFor($session->state),
+            ),
+            $statusCode,
+        );
+    }
+
+    private function requirePublishedSession(int $sessionId): Session
     {
         $session = $this->sessionGateway->findPublished($sessionId);
 
-        if (!$session instanceof QnaSession) {
+        if (!$session instanceof Session) {
             throw new PageNotFoundException();
         }
+
+        return $session;
+    }
+
+    private function requireControl(int $sessionId): Session
+    {
+        $session = $this->requirePublishedSession($sessionId);
 
         if (!$this->security->isGranted(QnaSessionControlVoter::ATTRIBUTE, $session)) {
             throw new AccessDeniedHttpException();

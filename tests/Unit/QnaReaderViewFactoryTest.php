@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace HeimrichHannot\QnaBundle\Tests\Unit;
 
-use HeimrichHannot\QnaBundle\Dto\QnaSession;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
-use HeimrichHannot\QnaBundle\View\QnaReaderViewFactory;
+use HeimrichHannot\QnaBundle\Model\Session;
+use HeimrichHannot\QnaBundle\View\ReaderViewFactory;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -30,8 +30,8 @@ final class QnaReaderViewFactoryTest extends TestCase
         bool $showVoteButtons,
         string $statusTranslationKey,
     ): void {
-        $session = new QnaSession(42, 'Future', 'future', true, $state, null, null);
-        $view = (new QnaReaderViewFactory())->createDynamic($session);
+        $session = new Session(42, 'Future', 'future', true, $state, null, null);
+        $view = $this->createFactory()->createDynamic($session);
 
         self::assertSame('qna-session-42-reader', $view->frameId);
         self::assertSame('qna-session-42-questions', $view->questionsFrameId);
@@ -44,8 +44,8 @@ final class QnaReaderViewFactoryTest extends TestCase
 
     public function testInitialViewOnlyContainsCacheNeutralData(): void
     {
-        $session = new QnaSession(42, 'Future', 'future', true, SessionState::OPEN, 100, null);
-        $view = (new QnaReaderViewFactory())->createInitial($session);
+        $session = new Session(42, 'Future', 'future', true, SessionState::OPEN, 100, null);
+        $view = $this->createFactory()->createInitial($session);
 
         self::assertSame(
             [
@@ -60,12 +60,17 @@ final class QnaReaderViewFactoryTest extends TestCase
 
     public function testAnonymousOpenReaderShowsQuestionsWithoutWriteControls(): void
     {
-        $session = new QnaSession(42, 'Future', 'future', true, SessionState::OPEN, 100, null);
+        $session = new Session(42, 'Future', 'future', true, SessionState::OPEN, 100, null);
 
-        $view = (new QnaReaderViewFactory())->createDynamic($session, false);
+        $view = $this->createFactory()->createDynamic($session, false);
 
         self::assertTrue($view->showQuestions);
         self::assertFalse($view->showQuestionForm);
         self::assertFalse($view->showVoteButtons);
+    }
+
+    private function createFactory(): ReaderViewFactory
+    {
+        return (new \ReflectionClass(ReaderViewFactory::class))->newInstanceWithoutConstructor();
     }
 }

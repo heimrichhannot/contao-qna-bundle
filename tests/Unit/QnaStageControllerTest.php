@@ -16,11 +16,13 @@ use Contao\FrontendTemplate;
 use Contao\LayoutModel;
 use Contao\PageModel;
 use Contao\PageRegular;
+use HeimrichHannot\QnaBundle\Configuration\QnaOptions;
 use HeimrichHannot\QnaBundle\Controller\Page\QnaStageController;
-use HeimrichHannot\QnaBundle\Dto\QnaSession;
 use HeimrichHannot\QnaBundle\Enum\QuestionSort;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
+use HeimrichHannot\QnaBundle\Model\Session;
+use HeimrichHannot\QnaBundle\Service\PollingPolicy;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -77,7 +79,7 @@ final class QnaStageControllerTest extends TestCase
             $gateway,
             $this->createStub(UrlGeneratorInterface::class),
             $twig,
-            2500,
+            $this->pollingPolicy(),
         );
 
         $response = $controller->renderForTest($page, '', QuestionSort::VOTES);
@@ -105,7 +107,7 @@ final class QnaStageControllerTest extends TestCase
             $gateway,
             $this->createStub(UrlGeneratorInterface::class),
             $twig,
-            2500,
+            $this->pollingPolicy(),
         );
 
         $frontendIndex->expects(self::once())
@@ -138,7 +140,7 @@ final class QnaStageControllerTest extends TestCase
     {
         $page = $this->createPage();
         $layout = $this->createLayout('modern');
-        $session = new QnaSession(7, 'Mobility', 'mobility', true, SessionState::OPEN, 100, null);
+        $session = new Session(7, 'Mobility', 'mobility', true, SessionState::OPEN, 100, null);
         $gateway = $this->createMock(QnaSessionGateway::class);
         $gateway->expects(self::once())
             ->method('findPublishedByAlias')
@@ -180,7 +182,7 @@ final class QnaStageControllerTest extends TestCase
             $gateway,
             $urlGenerator,
             $twig,
-            2500,
+            $this->pollingPolicy(),
         );
 
         $response = $controller->renderForTest($page, 'mobility', QuestionSort::TIME);
@@ -213,7 +215,7 @@ final class QnaStageControllerTest extends TestCase
             $gateway,
             $this->createStub(UrlGeneratorInterface::class),
             $this->createStub(Environment::class),
-            2500,
+            $this->pollingPolicy(),
         );
 
         $this->expectException(PageNotFoundException::class);
@@ -228,6 +230,11 @@ final class QnaStageControllerTest extends TestCase
         $page->clientCache = 0;
 
         return $page;
+    }
+
+    private function pollingPolicy(): PollingPolicy
+    {
+        return new PollingPolicy(new QnaOptions(2500, 500, 20, 4, 16));
     }
 
     private function createLayout(string $type): LayoutModel

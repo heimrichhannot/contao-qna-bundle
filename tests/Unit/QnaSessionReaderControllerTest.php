@@ -12,11 +12,12 @@ use Contao\Input;
 use Contao\PageModel;
 use Doctrine\DBAL\Connection;
 use HeimrichHannot\QnaBundle\Controller\ContentElement\QnaSessionReaderController;
-use HeimrichHannot\QnaBundle\Dto\QnaSession;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
-use HeimrichHannot\QnaBundle\View\QnaReaderViewFactory;
+use HeimrichHannot\QnaBundle\Model\Session;
+use HeimrichHannot\QnaBundle\Service\PollingPolicy;
 use HeimrichHannot\QnaBundle\View\QnaSessionListViewFactory;
+use HeimrichHannot\QnaBundle\View\ReaderViewFactory;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -76,7 +77,7 @@ final class QnaSessionReaderControllerTest extends TestCase
 
     public function testPublishedAliasIsResolvedAndTheItemIsMarkedAsUsed(): void
     {
-        $session = new QnaSession(7, 'Mobility', 'mobility', true, SessionState::OPEN, 100, null);
+        $session = new Session(7, 'Mobility', 'mobility', true, SessionState::OPEN, 100, null);
         $gateway = $this->createMock(QnaSessionGateway::class);
         $gateway->expects(self::once())
             ->method('findPublishedByAlias')
@@ -91,7 +92,7 @@ final class QnaSessionReaderControllerTest extends TestCase
 
     public function testListAndReaderCanShareAPageBecauseOnlyTheReaderConsumesTheItem(): void
     {
-        $session = new QnaSession(7, 'Mobility', 'mobility', true, SessionState::OPEN, 100, null);
+        $session = new Session(7, 'Mobility', 'mobility', true, SessionState::OPEN, 100, null);
         $gateway = $this->createMock(QnaSessionGateway::class);
         $gateway->expects(self::once())
             ->method('findPublishedByAlias')
@@ -133,9 +134,9 @@ final class QnaSessionReaderControllerTest extends TestCase
             new TestableQnaSessionReaderController(
                 $framework,
                 $gateway,
-                new QnaReaderViewFactory(),
+                (new \ReflectionClass(ReaderViewFactory::class))->newInstanceWithoutConstructor(),
                 $this->createStub(UrlGeneratorInterface::class),
-                2500,
+                (new \ReflectionClass(PollingPolicy::class))->newInstanceWithoutConstructor(),
             ),
             $input,
         ];
@@ -144,7 +145,7 @@ final class QnaSessionReaderControllerTest extends TestCase
 
 final class TestableQnaSessionReaderController extends QnaSessionReaderController
 {
-    public function resolveForTest(): QnaSession
+    public function resolveForTest(): Session
     {
         return $this->resolveSession();
     }

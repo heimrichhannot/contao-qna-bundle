@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace HeimrichHannot\QnaBundle\Dto;
+namespace HeimrichHannot\QnaBundle\Model;
 
 use HeimrichHannot\QnaBundle\Enum\SessionState;
 use HeimrichHannot\QnaBundle\Exception\SessionNotOpenException;
 use HeimrichHannot\QnaBundle\Exception\SessionNotPublishedException;
 
-final readonly class QnaSession
+final readonly class Session
 {
     public function __construct(
         public int $id,

@@ -6,8 +6,8 @@ namespace HeimrichHannot\QnaBundle\View;
 
 use Contao\CoreBundle\Routing\ContentUrlGenerator;
 use Contao\PageModel;
-use HeimrichHannot\QnaBundle\Dto\QnaSession;
-use HeimrichHannot\QnaBundle\Dto\QnaSessionListItemView;
+use HeimrichHannot\QnaBundle\Model\Session;
+use HeimrichHannot\QnaBundle\View\Model\SessionListItemView;
 
 final readonly class QnaSessionListViewFactory
 {
@@ -16,16 +16,16 @@ final readonly class QnaSessionListViewFactory
     }
 
     /**
-     * @param iterable<QnaSession> $sessions
+     * @param iterable<Session> $sessions
      *
-     * @return list<QnaSessionListItemView>
+     * @return list<SessionListItemView>
      */
     public function create(iterable $sessions, PageModel $readerPage): array
     {
         $items = [];
 
         foreach ($sessions as $session) {
-            $items[] = new QnaSessionListItemView(
+            $items[] = new SessionListItemView(
                 $session->id,
                 $session->title,
                 $this->contentUrlGenerator->generate(

@@ -6,7 +6,7 @@ namespace HeimrichHannot\QnaBundle\Gateway;
 
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
-use HeimrichHannot\QnaBundle\Dto\QnaVoteState;
+use HeimrichHannot\QnaBundle\Model\VoteState;
 
 class QnaVoteGateway
 {
@@ -34,7 +34,7 @@ class QnaVoteGateway
     }
 
     /** A locking read returns current state even inside an older repeatable-read snapshot. */
-    public function getState(int $questionId, int $memberId, bool $forUpdate = false): QnaVoteState
+    public function getState(int $questionId, int $memberId, bool $forUpdate = false): VoteState
     {
         $row = $this->connection->fetchAssociative(
             <<<'SQL'
@@ -54,7 +54,7 @@ class QnaVoteGateway
 
         $row = new Row($row);
 
-        return new QnaVoteState($questionId, $row->int('voteCount'), $row->bool('hasVoted'));
+        return new VoteState($questionId, $row->int('voteCount'), $row->bool('hasVoted'));
     }
 
     public function deleteByMemberIdOrQuestionAuthor(int $memberId): void

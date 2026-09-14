@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace HeimrichHannot\QnaBundle\Tests\Unit;
 
-use HeimrichHannot\QnaBundle\Dto\QnaQuestion;
-use HeimrichHannot\QnaBundle\Dto\QnaSession;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
 use HeimrichHannot\QnaBundle\Exception\QuestionNotFoundException;
 use HeimrichHannot\QnaBundle\Exception\SessionNotFoundException;
@@ -13,12 +11,14 @@ use HeimrichHannot\QnaBundle\Exception\SessionNotOpenException;
 use HeimrichHannot\QnaBundle\Gateway\LockedContextLoader;
 use HeimrichHannot\QnaBundle\Gateway\QnaQuestionGateway;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
+use HeimrichHannot\QnaBundle\Model\Question;
+use HeimrichHannot\QnaBundle\Model\Session;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class LockedContextLoaderTest extends TestCase
 {
-    /** @return iterable<string, array{?QnaSession, ?QnaQuestion, class-string<\Throwable>}> */
+    /** @return iterable<string, array{?Session, ?Question, class-string<\Throwable>}> */
     public static function rejectionPrecedence(): iterable
     {
         yield 'missing question takes precedence over missing session' => [
@@ -28,17 +28,17 @@ final class LockedContextLoaderTest extends TestCase
         ];
         yield 'question from another session takes precedence' => [
             self::session(),
-            new QnaQuestion(23, 8, 1, 'Question', 100),
+            new Question(23, 8, 1, 'Question', 100),
             QuestionNotFoundException::class,
         ];
         yield 'missing session is rejected after question validation' => [
             null,
-            new QnaQuestion(23, 7, 1, 'Question', 100),
+            new Question(23, 7, 1, 'Question', 100),
             SessionNotFoundException::class,
         ];
         yield 'closed session is rejected after question validation' => [
             self::session(SessionState::CLOSED),
-            new QnaQuestion(23, 7, 1, 'Question', 100),
+            new Question(23, 7, 1, 'Question', 100),
             SessionNotOpenException::class,
         ];
     }
@@ -46,14 +46,14 @@ final class LockedContextLoaderTest extends TestCase
     /** @param class-string<\Throwable> $exception */
     #[DataProvider('rejectionPrecedence')]
     public function testLockOrderAndErrorPrecedence(
-        ?QnaSession $session,
-        ?QnaQuestion $question,
+        ?Session $session,
+        ?Question $question,
         string $exception,
     ): void {
         $calls = [];
         $sessions = $this->createMock(QnaSessionGateway::class);
         $sessions->expects(self::once())->method('find')->with(7, true)->willReturnCallback(
-            static function () use (&$calls, $session): ?QnaSession {
+            static function () use (&$calls, $session): ?Session {
                 $calls[] = 'session';
 
                 return $session;
@@ -61,7 +61,7 @@ final class LockedContextLoaderTest extends TestCase
         );
         $questions = $this->createMock(QnaQuestionGateway::class);
         $questions->expects(self::once())->method('find')->with(23, true)->willReturnCallback(
-            static function () use (&$calls, $question): ?QnaQuestion {
+            static function () use (&$calls, $question): ?Question {
                 $calls[] = 'question';
 
                 return $question;
@@ -77,8 +77,8 @@ final class LockedContextLoaderTest extends TestCase
         }
     }
 
-    private static function session(SessionState $state = SessionState::OPEN): QnaSession
+    private static function session(SessionState $state = SessionState::OPEN): Session
     {
-        return new QnaSession(7, 'Session', 'session', true, $state, 100, null);
+        return new Session(7, 'Session', 'session', true, $state, 100, null);
     }
 }

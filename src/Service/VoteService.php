@@ -6,10 +6,10 @@ namespace HeimrichHannot\QnaBundle\Service;
 
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
-use HeimrichHannot\QnaBundle\Dto\QnaVoteState;
 use HeimrichHannot\QnaBundle\Exception\QuestionAnsweredException;
 use HeimrichHannot\QnaBundle\Gateway\LockedContextLoader;
 use HeimrichHannot\QnaBundle\Gateway\QnaVoteGateway;
+use HeimrichHannot\QnaBundle\Model\VoteState;
 use Psr\Clock\ClockInterface;
 
 final readonly class VoteService
@@ -23,9 +23,9 @@ final readonly class VoteService
     ) {
     }
 
-    public function vote(int $sessionId, int $questionId): QnaVoteState
+    public function vote(int $sessionId, int $questionId): VoteState
     {
-        return $this->connection->transactional(function () use ($questionId, $sessionId): QnaVoteState {
+        return $this->connection->transactional(function () use ($questionId, $sessionId): VoteState {
             $question = $this->contextLoader->lockOpenSessionWithQuestion($sessionId, $questionId)->question;
 
             if ($question->answered) {

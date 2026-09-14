@@ -7,6 +7,7 @@ namespace HeimrichHannot\QnaBundle\Tests\Integration;
 use Contao\FrontendUser;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
+use HeimrichHannot\QnaBundle\Configuration\QnaOptions;
 use HeimrichHannot\QnaBundle\Exception\QuestionAnsweredException;
 use HeimrichHannot\QnaBundle\Exception\QuestionCooldownException;
 use HeimrichHannot\QnaBundle\Exception\SessionNotOpenException;
@@ -113,8 +114,7 @@ final class QuestionAnswerDatabaseTest extends TestCase
             new QnaQuestionGateway($this->connection),
             new FrontendMemberProvider($security),
             new MockClock('@150'),
-            500,
-            20,
+            new QnaOptions(2500, 500, 20, 4, 16),
             $votes,
             $this->connection,
         );
