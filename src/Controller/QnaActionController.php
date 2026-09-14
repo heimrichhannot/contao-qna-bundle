@@ -9,6 +9,7 @@ use HeimrichHannot\QnaBundle\Dto\QnaSession;
 use HeimrichHannot\QnaBundle\Exception\AuthenticationRequiredException;
 use HeimrichHannot\QnaBundle\Exception\EmptyQuestionException;
 use HeimrichHannot\QnaBundle\Exception\InvalidSessionTransitionException;
+use HeimrichHannot\QnaBundle\Exception\QuestionAnsweredException;
 use HeimrichHannot\QnaBundle\Exception\QuestionCooldownException;
 use HeimrichHannot\QnaBundle\Exception\QuestionNotFoundException;
 use HeimrichHannot\QnaBundle\Exception\QuestionTooLongException;
@@ -17,6 +18,7 @@ use HeimrichHannot\QnaBundle\Exception\SessionNotOpenException;
 use HeimrichHannot\QnaBundle\Exception\SessionNotPublishedException;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
 use HeimrichHannot\QnaBundle\Security\Voter\QnaSessionControlVoter;
+use HeimrichHannot\QnaBundle\Service\QuestionAnswerService;
 use HeimrichHannot\QnaBundle\Service\QuestionService;
 use HeimrichHannot\QnaBundle\Service\SessionService;
 use HeimrichHannot\QnaBundle\Service\VoteService;
@@ -38,6 +40,7 @@ final readonly class QnaActionController
         private QnaFrameResponseFactory $responseFactory,
         private Security $security,
         private UrlGeneratorInterface $urlGenerator,
+        private QuestionAnswerService $answerService,
     ) {
     }
 
@@ -122,6 +125,12 @@ final readonly class QnaActionController
                 'qna.error.session_not_open',
                 Response::HTTP_UNPROCESSABLE_ENTITY,
             );
+        } catch (QuestionAnsweredException) {
+            return $this->responseFactory->renderReaderQuestions(
+                $sessionId,
+                'qna.error.question_answered',
+                Response::HTTP_UNPROCESSABLE_ENTITY,
+            );
         } catch (QuestionNotFoundException|SessionNotFoundException|SessionNotPublishedException) {
             throw new PageNotFoundException();
         }
@@ -189,6 +198,46 @@ final readonly class QnaActionController
             'sessionId' => $session->id,
             'sort' => $sort,
         ]);
+    }
+
+    #[Route(
+        '/_qna/session/{sessionId}/question/{questionId}/answered',
+        name: 'contao_qna_question_answered',
+        requirements: ['sessionId' => '\\d+', 'questionId' => '\\d+'],
+        defaults: ['_token_check' => true],
+        methods: ['POST'],
+    )]
+    public function answered(int $sessionId, int $questionId, Request $request): Response
+    {
+        return $this->changeAnswered($sessionId, $questionId, true, $request);
+    }
+
+    #[Route(
+        '/_qna/session/{sessionId}/question/{questionId}/unanswered',
+        name: 'contao_qna_question_unanswered',
+        requirements: ['sessionId' => '\\d+', 'questionId' => '\\d+'],
+        defaults: ['_token_check' => true],
+        methods: ['POST'],
+    )]
+    public function unanswered(int $sessionId, int $questionId, Request $request): Response
+    {
+        return $this->changeAnswered($sessionId, $questionId, false, $request);
+    }
+
+    private function changeAnswered(int $sessionId, int $questionId, bool $answered, Request $request): Response
+    {
+        $this->requireControl($sessionId);
+        $sort = 'time' === $request->query->getString('sort') ? 'time' : 'votes';
+
+        try {
+            $this->answerService->setAnswered($sessionId, $questionId, $answered);
+        } catch (SessionNotOpenException) {
+            return $this->responseFactory->renderStage($sessionId, $sort, 'qna.error.session_not_open', Response::HTTP_UNPROCESSABLE_ENTITY);
+        } catch (QuestionNotFoundException|SessionNotFoundException|SessionNotPublishedException) {
+            throw new PageNotFoundException();
+        }
+
+        return $this->redirectToRoute('contao_qna_stage_questions', ['sessionId' => $sessionId, 'sort' => $sort]);
     }
 
     private function requireControl(int $sessionId): QnaSession

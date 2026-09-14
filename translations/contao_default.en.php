@@ -3,6 +3,14 @@
 declare(strict_types=1);
 
 return [
+    'qna.question.answered' => 'Answered',
+    'qna.question.mark_answered' => 'Mark as answered',
+    'qna.question.mark_unanswered' => 'Mark as unanswered',
+    'qna.stage.unanswered' => 'Unanswered questions',
+    'qna.stage.answered' => 'Answered questions',
+    'qna.stage.unanswered_empty' => 'There are no unanswered questions.',
+    'qna.error.question_answered' => 'This question has already been answered. Voting is no longer possible.',
+
     'CTE.qna' => 'Q&A',
     'CTE.qna_session_list.0' => 'Question session list',
     'CTE.qna_session_list.1' => 'Displays all published question sessions.',

@@ -24,6 +24,19 @@ use Symfony\Bundle\SecurityBundle\Security;
 
 final class VoteServiceTest extends TestCase
 {
+    public function testAnsweredQuestionRejectsVoteBeforeWriting(): void
+    {
+        $sessions = $this->createStub(QnaSessionGateway::class);
+        $sessions->method('find')->willReturn($this->session());
+        $questions = $this->createMock(QnaQuestionGateway::class);
+        $questions->expects(self::once())->method('find')->with(23, true)->willReturn(new QnaQuestion(23, 12, 7, 'Question', 100, true));
+        $votes = $this->createMock(QnaVoteGateway::class);
+        $votes->expects(self::never())->method('create');
+        $this->expectException(\HeimrichHannot\QnaBundle\Exception\QuestionAnsweredException::class);
+
+        $this->service($sessions, $questions, $votes)->vote(23, 12);
+    }
+
     public function testFirstVoteIsCreatedAndReturnsCurrentState(): void
     {
         [$sessionGateway, $questionGateway, $voteGateway] = $this->gatewaysForOpenQuestion();
@@ -119,6 +132,14 @@ final class VoteServiceTest extends TestCase
         $this->service($sessionGateway, $questionGateway, $voteGateway)->vote(23);
     }
 
+    private function transactionConnection(): \Doctrine\DBAL\Connection
+    {
+        $connection = $this->createStub(\Doctrine\DBAL\Connection::class);
+        $connection->method('transactional')->willReturnCallback(static fn (callable $callback): mixed => $callback());
+
+        return $connection;
+    }
+
     /**
      * @return array{QnaSessionGateway, QnaQuestionGateway, QnaVoteGateway&MockObject}
      */
@@ -151,6 +172,7 @@ final class VoteServiceTest extends TestCase
             $voteGateway,
             new FrontendMemberProvider($security),
             $this->clock(),
+            $this->transactionConnection(),
         );
     }
 

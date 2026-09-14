@@ -48,12 +48,26 @@
             </a>
         </nav>
 
+        <h2>{{ 'qna.stage.unanswered'|trans({}, 'contao_default') }}</h2>
         {% include '@Contao/qna/question_list.html.twig' with {
-            questions: questions,
+            questions: unanswered_questions,
             frame_id: 'qna-session-' ~ session.id ~ '-stage-questions',
             show_vote_buttons: false,
             vote_urls: {},
-            request_token: null
+            answer_urls: answer_urls,
+            request_token: request_token,
+            empty_translation_key: 'qna.stage.unanswered_empty'
         } only %}
+        {% if answered_questions is not empty %}
+            <h2>{{ 'qna.stage.answered'|trans({}, 'contao_default') }}</h2>
+            {% include '@Contao/qna/question_list.html.twig' with {
+                questions: answered_questions,
+                frame_id: 'qna-session-' ~ session.id ~ '-stage-answered',
+                show_vote_buttons: false,
+                vote_urls: {},
+                answer_urls: answer_urls,
+                request_token: request_token
+            } only %}
+        {% endif %}
     {% endif %}
 </div>

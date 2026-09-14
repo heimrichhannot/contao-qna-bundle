@@ -12,6 +12,7 @@ final readonly class QnaQuestion
         public int $memberId,
         public string $question,
         public int $createdAt,
+        public bool $answered = false,
     ) {
     }
 }

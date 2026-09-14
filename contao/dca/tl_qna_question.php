@@ -56,6 +56,9 @@ $GLOBALS['TL_DCA']['tl_qna_question'] = [
             'search' => true,
             'sql' => ['type' => 'text'],
         ],
+        'answered' => [
+            'sql' => ['type' => 'boolean', 'default' => false],
+        ],
         'createdAt' => [
             'eval' => ['rgxp' => 'datim'],
             'sql' => ['type' => 'integer', 'unsigned' => true, 'default' => 0],

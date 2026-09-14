@@ -56,6 +56,7 @@ final class QnaActionControllerTest extends TestCase
             $this->uninitializedResponseFactory(),
             $security,
             $urlGenerator,
+            (new \ReflectionClass(\HeimrichHannot\QnaBundle\Service\QuestionAnswerService::class))->newInstanceWithoutConstructor(),
         );
 
         $response = $controller->start(7, Request::create('/start?sort=time', 'POST'));
@@ -108,6 +109,7 @@ final class QnaActionControllerTest extends TestCase
             $responseFactory,
             $security,
             $urlGenerator,
+            (new \ReflectionClass(\HeimrichHannot\QnaBundle\Service\QuestionAnswerService::class))->newInstanceWithoutConstructor(),
         );
 
         $response = $controller->start(7, Request::create('/start?sort=invalid', 'POST'));
@@ -142,6 +144,7 @@ final class QnaActionControllerTest extends TestCase
             $this->uninitializedResponseFactory(),
             $security,
             $urlGenerator,
+            (new \ReflectionClass(\HeimrichHannot\QnaBundle\Service\QuestionAnswerService::class))->newInstanceWithoutConstructor(),
         );
 
         $response = $controller->stop(7, Request::create('/stop', 'POST'));
@@ -170,6 +173,7 @@ final class QnaActionControllerTest extends TestCase
             $responseFactory,
             $security,
             $this->createUrlGenerator(),
+            (new \ReflectionClass(\HeimrichHannot\QnaBundle\Service\QuestionAnswerService::class))->newInstanceWithoutConstructor(),
         );
 
         $response = $controller->stop(7, Request::create('/stop', 'POST'));
@@ -211,6 +215,7 @@ final class QnaActionControllerTest extends TestCase
             $this->uninitializedResponseFactory(),
             $this->createStub(Security::class),
             $urlGenerator,
+            (new \ReflectionClass(\HeimrichHannot\QnaBundle\Service\QuestionAnswerService::class))->newInstanceWithoutConstructor(),
         );
 
         $response = $controller->question(7, Request::create('/question', 'POST', ['question' => 'Question']));
@@ -244,6 +249,7 @@ final class QnaActionControllerTest extends TestCase
             $this->createResponseFactory($gateway, $questionGateway, $memberSecurity, $this->createStub(Security::class)),
             $this->createStub(Security::class),
             $this->createUrlGenerator(),
+            (new \ReflectionClass(\HeimrichHannot\QnaBundle\Service\QuestionAnswerService::class))->newInstanceWithoutConstructor(),
         );
 
         $response = $controller->question(7, Request::create('/question', 'POST', ['question' => '  ']));
@@ -270,6 +276,7 @@ final class QnaActionControllerTest extends TestCase
             $voteGateway,
             new FrontendMemberProvider($memberSecurity),
             new MockClock('@150'),
+            $this->transactionConnection(),
         );
         $controller = new QnaActionController(
             $this->uninitializedQuestionService(),
@@ -279,6 +286,7 @@ final class QnaActionControllerTest extends TestCase
             $this->createResponseFactory($gateway, $questionGateway, $memberSecurity, $this->createStub(Security::class)),
             $this->createStub(Security::class),
             $this->createUrlGenerator(),
+            (new \ReflectionClass(\HeimrichHannot\QnaBundle\Service\QuestionAnswerService::class))->newInstanceWithoutConstructor(),
         );
 
         $response = $controller->vote(7, 23);
@@ -312,6 +320,7 @@ final class QnaActionControllerTest extends TestCase
             $this->createResponseFactory($gateway, $questionGateway, $memberSecurity, $this->createStub(Security::class)),
             $this->createStub(Security::class),
             $this->createUrlGenerator(),
+            (new \ReflectionClass(\HeimrichHannot\QnaBundle\Service\QuestionAnswerService::class))->newInstanceWithoutConstructor(),
         );
 
         $response = $controller->question(7, Request::create('/question', 'POST', ['question' => 'Question']));
@@ -339,10 +348,111 @@ final class QnaActionControllerTest extends TestCase
             $this->uninitializedResponseFactory(),
             $security,
             $this->createStub(UrlGeneratorInterface::class),
+            (new \ReflectionClass(\HeimrichHannot\QnaBundle\Service\QuestionAnswerService::class))->newInstanceWithoutConstructor(),
         );
 
         $this->expectException(AccessDeniedHttpException::class);
         $controller->start(7, Request::create('/start', 'POST'));
+    }
+
+    public function testAnsweredAndUnansweredActionsPreserveSortAndRedirectPrivately(): void
+    {
+        foreach ([true, false] as $answered) {
+            $session = new QnaSession(7, 'Session', 'session', true, SessionState::OPEN, 100, null);
+            $sessions = $this->createStub(QnaSessionGateway::class);
+            $sessions->method('findPublished')->willReturn($session);
+            $sessions->method('find')->willReturn($session);
+            $questions = $this->createMock(QnaQuestionGateway::class);
+            $questions->expects(self::once())->method('find')->with(23, true)->willReturn(new QnaQuestion(23, 7, 1, 'Question', 100, !$answered));
+            $questions->expects(self::once())->method('setAnswered')->with(23, $answered);
+            $security = $this->createMock(Security::class);
+            $security->expects(self::once())->method('isGranted')->with(QnaSessionControlVoter::ATTRIBUTE, $session)->willReturn(true);
+            $urls = $this->createMock(UrlGeneratorInterface::class);
+            $urls->expects(self::once())->method('generate')->with('contao_qna_stage_questions', ['sessionId' => 7, 'sort' => 'time'])->willReturn('/stage?sort=time');
+            $controller = new QnaActionController(
+                $this->uninitializedQuestionService(), $this->uninitializedVoteService(), new SessionService($sessions, new MockClock('@100')),
+                $sessions, $this->uninitializedResponseFactory(), $security, $urls,
+                new \HeimrichHannot\QnaBundle\Service\QuestionAnswerService($sessions, $questions, $this->transactionConnection()),
+            );
+            $method = $answered ? 'answered' : 'unanswered';
+            $response = $controller->$method(7, 23, Request::create('/action?sort=time', 'POST'));
+            self::assertSame(303, $response->getStatusCode());
+            self::assertSame('/stage?sort=time', $response->headers->get('Location'));
+            self::assertStringContainsString('no-store', $response->headers->get('Cache-Control', ''));
+            self::assertStringContainsString('private', $response->headers->get('Cache-Control', ''));
+        }
+    }
+
+    public function testClosedSessionAnswerActionRenders422WithSelectedSort(): void
+    {
+        $session = new QnaSession(7, 'Session', 'session', true, SessionState::CLOSED, 100, 200);
+        $sessions = $this->createStub(QnaSessionGateway::class);
+        $sessions->method('findPublished')->willReturn($session);
+        $sessions->method('find')->willReturn($session);
+        $questions = $this->createMock(QnaQuestionGateway::class);
+        $questions->method('find')->willReturn(new QnaQuestion(23, 7, 1, 'Question', 100));
+        $questions->expects(self::never())->method('setAnswered');
+        $questions->expects(self::once())->method('findForStage')->with(7, 'time')->willReturn([]);
+        $security = $this->createStub(Security::class);
+        $security->method('isGranted')->willReturn(true);
+        $controller = new QnaActionController(
+            $this->uninitializedQuestionService(), $this->uninitializedVoteService(), new SessionService($sessions, new MockClock('@100')),
+            $sessions, $this->createResponseFactory($sessions, $questions, $security, $security), $security, $this->createUrlGenerator(),
+            new \HeimrichHannot\QnaBundle\Service\QuestionAnswerService($sessions, $questions, $this->transactionConnection()),
+        );
+        $response = $controller->answered(7, 23, Request::create('/action?sort=time', 'POST'));
+        self::assertSame(422, $response->getStatusCode());
+        self::assertStringContainsString('no-store', $response->headers->get('Cache-Control', ''));
+    }
+
+    public function testWrongSessionQuestionReturnsNotFound(): void
+    {
+        $session = new QnaSession(7, 'Session', 'session', true, SessionState::OPEN, 100, null);
+        $sessions = $this->createStub(QnaSessionGateway::class);
+        $sessions->method('findPublished')->willReturn($session);
+        $questions = $this->createMock(QnaQuestionGateway::class);
+        $questions->method('find')->willReturn(new QnaQuestion(23, 8, 1, 'Question', 100));
+        $questions->expects(self::never())->method('setAnswered');
+        $security = $this->createStub(Security::class);
+        $security->method('isGranted')->willReturn(true);
+        $controller = new QnaActionController(
+            $this->uninitializedQuestionService(), $this->uninitializedVoteService(), new SessionService($sessions, new MockClock('@100')),
+            $sessions, $this->uninitializedResponseFactory(), $security, $this->createUrlGenerator(),
+            new \HeimrichHannot\QnaBundle\Service\QuestionAnswerService($sessions, $questions, $this->transactionConnection()),
+        );
+        $this->expectException(\Contao\CoreBundle\Exception\PageNotFoundException::class);
+        $controller->answered(7, 23, Request::create('/action', 'POST'));
+    }
+
+    public function testBothAnswerActionsDenyUnauthorizedOperatorsBeforeMutation(): void
+    {
+        foreach (['answered', 'unanswered'] as $method) {
+            $sessions = $this->createStub(QnaSessionGateway::class);
+            $sessions->method('findPublished')->willReturn(new QnaSession(7, 'Session', 'session', true, SessionState::OPEN, 100, null));
+            $questions = $this->createMock(QnaQuestionGateway::class);
+            $questions->expects(self::never())->method('find');
+            $security = $this->createStub(Security::class);
+            $security->method('isGranted')->willReturn(false);
+            $controller = new QnaActionController(
+                $this->uninitializedQuestionService(), $this->uninitializedVoteService(), new SessionService($sessions, new MockClock('@100')),
+                $sessions, $this->uninitializedResponseFactory(), $security, $this->createUrlGenerator(),
+                new \HeimrichHannot\QnaBundle\Service\QuestionAnswerService($sessions, $questions, $this->transactionConnection()),
+            );
+            try {
+                $controller->$method(7, 23, Request::create('/action', 'POST'));
+                self::fail('Expected access denial.');
+            } catch (AccessDeniedHttpException $exception) {
+                self::assertSame(403, $exception->getStatusCode());
+            }
+        }
+    }
+
+    private function transactionConnection(): \Doctrine\DBAL\Connection
+    {
+        $connection = $this->createStub(\Doctrine\DBAL\Connection::class);
+        $connection->method('transactional')->willReturnCallback(static fn (callable $callback): mixed => $callback());
+
+        return $connection;
     }
 
     private function uninitializedQuestionService(): QuestionService

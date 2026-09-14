@@ -14,6 +14,7 @@ final readonly class QnaQuestionListItem
         public int $createdAt,
         public int $voteCount,
         public bool $hasVoted,
+        public bool $answered = false,
     ) {
     }
 }

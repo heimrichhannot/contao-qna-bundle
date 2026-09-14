@@ -1,6 +1,6 @@
 <div id="{{ frame_id }}" class="qna-questions">
     {% if questions is empty %}
-        <p class="qna-empty">{{ 'qna.questions.empty'|trans({}, 'contao_default') }}</p>
+        <p class="qna-empty">{{ (empty_translation_key|default('qna.questions.empty'))|trans({}, 'contao_default') }}</p>
     {% else %}
         <ol class="qna-question-list">
             {% for question in questions %}
@@ -8,6 +8,7 @@
                     question: question,
                     show_vote_button: show_vote_buttons,
                     vote_url: vote_urls[question.id]|default(null),
+                    answer_url: answer_urls[question.id]|default(null),
                     request_token: request_token
                 } only %}
             {% endfor %}

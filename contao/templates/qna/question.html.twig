@@ -5,7 +5,20 @@
             {{ 'qna.question.vote_count'|trans([question.voteCount], 'contao_default') }}
         </p>
 
-        {% if show_vote_button %}
+        {% if question.answered %}
+            <p class="qna-question__answered">{{ 'qna.question.answered'|trans({}, 'contao_default') }}</p>
+        {% endif %}
+
+        {% if answer_url|default(null) %}
+            <form class="qna-answer-form" action="{{ answer_url }}" method="post">
+                <input type="hidden" name="REQUEST_TOKEN" value="{{ request_token }}">
+                <button id="qna-question-{{ question.id }}-answer" class="qna-button" type="submit" aria-describedby="qna-question-{{ question.id }}-text">
+                    {{ (question.answered ? 'qna.question.mark_unanswered' : 'qna.question.mark_answered')|trans({}, 'contao_default') }}
+                </button>
+            </form>
+        {% endif %}
+
+        {% if show_vote_button and not question.answered %}
             <form class="qna-vote-form" action="{{ vote_url }}" method="post">
                 <input type="hidden" name="REQUEST_TOKEN" value="{{ request_token }}">
                 <button

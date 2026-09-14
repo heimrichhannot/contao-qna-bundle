@@ -108,7 +108,7 @@ Funktionsumfang:
 
 Ausdrücklich **nicht** implementieren: Moderationsansicht, Fragenfreigabe,
 anonyme Nutzer, Downvotes, Vote-Rücknahme, Antworten auf Fragen,
-„beantwortet"-Status, WebSockets, Mercure, Benachrichtigungen, Export,
+WebSockets, Mercure, Benachrichtigungen, Export,
 Session-Auswahl im Reader oder in der Bühnenseite, Frontend-Module, React,
 Vue, eigene Benutzerverwaltung.
 
@@ -990,3 +990,16 @@ Reader-Element, Stage-Seite mit Seitenschutz und Mitgliedergruppen),
 URL-Beispiele, technische Architektur, den Erweiterungspunkt für die
 Autorisierung, die Lastabschätzung des Pollings und alle bekannten
 Einschränkungen.
+
+## Ergänzung: Beantwortete Fragen
+
+`tl_qna_question.answered` ist ein Boolean mit Default false. Autorisierte
+Bühnenbediener dürfen Fragen nur in offenen, veröffentlichten Sessions als
+beantwortet oder unbeantwortet markieren. Explizite idempotente POST-Aktionen
+prüfen CSRF, `QNA_SESSION_CONTROL` und die Session-Zuordnung. Markieren und
+Abstimmen sperren dieselbe Frage innerhalb einer DBAL-Transaktion.
+Beantwortete Fragen erlauben keine neuen Votes; vorhandene Votes bleiben erhalten.
+Die Bühne gruppiert unbeantwortete vor beantworteten Fragen und erhält die
+gewählte Sortierung je Gruppe. Teilnehmer behalten ihre Vote-Sortierung mit
+Text-Badge und ohne Vote-Button an beantworteten Fragen. Geschlossene Sessions
+zeigen Gruppen und Badges ohne Aktionen. Kein Antworttext oder Antwortzeitpunkt.

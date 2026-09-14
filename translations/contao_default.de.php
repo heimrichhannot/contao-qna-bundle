@@ -3,6 +3,14 @@
 declare(strict_types=1);
 
 return [
+    'qna.question.answered' => 'Beantwortet',
+    'qna.question.mark_answered' => 'Als beantwortet markieren',
+    'qna.question.mark_unanswered' => 'Als unbeantwortet markieren',
+    'qna.stage.unanswered' => 'Unbeantwortete Fragen',
+    'qna.stage.answered' => 'Beantwortete Fragen',
+    'qna.stage.unanswered_empty' => 'Es gibt keine unbeantworteten Fragen.',
+    'qna.error.question_answered' => 'Diese Frage wurde bereits beantwortet. Abstimmen ist nicht mehr möglich.',
+
     'CTE.qna' => 'Q&A',
     'CTE.qna_session_list.0' => 'Fragerunden-Liste',
     'CTE.qna_session_list.1' => 'Zeigt alle veröffentlichten Fragerunden an.',

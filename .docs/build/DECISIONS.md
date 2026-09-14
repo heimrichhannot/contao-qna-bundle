@@ -254,3 +254,12 @@ verifizierte Listener prüft dadurch bei zustandsbehafteten bzw.
 authentifizierten Frontend-Requests das Feld `REQUEST_TOKEN`. Start und Stopp
 prüfen zusätzlich `QNA_SESSION_CONTROL` und delegieren ihre Zustandsübergänge
 an `SessionService`.
+
+## D8: Beantwortet-Status
+
+Ein boolesches DCA-Feld `answered` (Doctrine-Schemarepräsentation, Default false)
+ersetzt den bisherigen Ausschluss dieses Status. `QuestionAnswerService` setzt
+explizite Zielzustände idempotent. Dieser Service und `VoteService` sperren die
+Frage mit `SELECT ... FOR UPDATE` in einer Transaktion, bevor sie den Status
+prüfen. Die Autorisierung bleibt beim bestehenden `QNA_SESSION_CONTROL`-Voter.
+Bühnenaktionen behalten den privaten 303/Stream-Ablauf und die Sortierung bei.

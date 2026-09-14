@@ -21,6 +21,8 @@ final class QnaHttpRouteTest extends TestCase
         yield 'reader controls' => [QnaFrameController::class, 'readerControls', 'contao_qna_reader_controls', false];
         yield 'stage frame' => [QnaFrameController::class, 'stage', 'contao_qna_stage_questions', false];
         yield 'question' => [QnaActionController::class, 'question', 'contao_qna_question_create', true];
+        yield 'answered' => [QnaActionController::class, 'answered', 'contao_qna_question_answered', true];
+        yield 'unanswered' => [QnaActionController::class, 'unanswered', 'contao_qna_question_unanswered', true];
         yield 'vote' => [QnaActionController::class, 'vote', 'contao_qna_vote_create', true];
         yield 'start' => [QnaActionController::class, 'start', 'contao_qna_session_start', true];
         yield 'stop' => [QnaActionController::class, 'stop', 'contao_qna_session_stop', true];

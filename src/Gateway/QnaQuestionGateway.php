@@ -18,12 +18,13 @@ class QnaQuestionGateway
             q.memberId,
             q.question,
             q.createdAt,
+            q.answered,
             COUNT(v.id) AS voteCount,
             MAX(CASE WHEN v.memberId = :memberId THEN 1 ELSE 0 END) AS hasVoted
         FROM tl_qna_question q
         LEFT JOIN tl_qna_vote v ON v.pid = q.id
         WHERE q.pid = :sessionId
-        GROUP BY q.id, q.pid, q.memberId, q.question, q.createdAt
+        GROUP BY q.id, q.pid, q.memberId, q.question, q.createdAt, q.answered
         ORDER BY voteCount DESC, q.createdAt ASC
         SQL;
 
@@ -34,12 +35,13 @@ class QnaQuestionGateway
             q.memberId,
             q.question,
             q.createdAt,
+            q.answered,
             COUNT(v.id) AS voteCount,
             MAX(CASE WHEN v.memberId = :memberId THEN 1 ELSE 0 END) AS hasVoted
         FROM tl_qna_question q
         LEFT JOIN tl_qna_vote v ON v.pid = q.id
         WHERE q.pid = :sessionId
-        GROUP BY q.id, q.pid, q.memberId, q.question, q.createdAt
+        GROUP BY q.id, q.pid, q.memberId, q.question, q.createdAt, q.answered
         ORDER BY q.createdAt ASC
         SQL;
 
@@ -50,12 +52,13 @@ class QnaQuestionGateway
             q.memberId,
             q.question,
             q.createdAt,
+            q.answered,
             COUNT(v.id) AS voteCount,
             0 AS hasVoted
         FROM tl_qna_question q
         LEFT JOIN tl_qna_vote v ON v.pid = q.id
         WHERE q.pid = :sessionId
-        GROUP BY q.id, q.pid, q.memberId, q.question, q.createdAt
+        GROUP BY q.id, q.pid, q.memberId, q.question, q.createdAt, q.answered
         ORDER BY voteCount DESC, q.createdAt ASC
         SQL;
 
@@ -66,12 +69,13 @@ class QnaQuestionGateway
             q.memberId,
             q.question,
             q.createdAt,
+            q.answered,
             COUNT(v.id) AS voteCount,
             0 AS hasVoted
         FROM tl_qna_question q
         LEFT JOIN tl_qna_vote v ON v.pid = q.id
         WHERE q.pid = :sessionId
-        GROUP BY q.id, q.pid, q.memberId, q.question, q.createdAt
+        GROUP BY q.id, q.pid, q.memberId, q.question, q.createdAt, q.answered
         ORDER BY q.createdAt ASC
         SQL;
 
@@ -79,14 +83,14 @@ class QnaQuestionGateway
     {
     }
 
-    public function find(int $questionId): ?QnaQuestion
+    public function find(int $questionId, bool $forUpdate = false): ?QnaQuestion
     {
         $row = $this->connection->fetchAssociative(
             <<<'SQL'
-                SELECT id, pid, memberId, question, createdAt
+                SELECT id, pid, memberId, question, createdAt, answered
                 FROM tl_qna_question
                 WHERE id = :id
-                SQL,
+                SQL.($forUpdate ? ' FOR UPDATE' : ''),
             ['id' => $questionId],
             ['id' => ParameterType::INTEGER],
         );
@@ -101,7 +105,16 @@ class QnaQuestionGateway
             $this->intValue($row['memberId'] ?? null, 'memberId'),
             $this->stringValue($row['question'] ?? null, 'question'),
             $this->intValue($row['createdAt'] ?? null, 'createdAt'),
+            $this->boolValue($row['answered'] ?? null, 'answered'),
         );
+    }
+
+    public function setAnswered(int $questionId, bool $answered): void
+    {
+        $this->connection->update('tl_qna_question', ['answered' => $answered], ['id' => $questionId], [
+            'answered' => ParameterType::BOOLEAN,
+            'id' => ParameterType::INTEGER,
+        ]);
     }
 
     public function findLatestCreatedAt(int $sessionId, int $memberId): ?int
@@ -227,6 +240,7 @@ class QnaQuestionGateway
             $this->intValue($row['createdAt'] ?? null, 'createdAt'),
             $this->intValue($row['voteCount'] ?? null, 'voteCount'),
             $this->boolValue($row['hasVoted'] ?? null, 'hasVoted'),
+            $this->boolValue($row['answered'] ?? null, 'answered'),
         );
     }
 }

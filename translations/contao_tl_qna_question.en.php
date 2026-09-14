@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 return [
+    'tl_qna_question.answered.0' => 'Answered',
     'tl_qna_question.pid.0' => 'Question session',
     'tl_qna_question.pid.1' => 'The question session to which the question belongs.',
     'tl_qna_question.memberId.0' => 'Member ID',

@@ -158,13 +158,25 @@ final readonly class QnaFrameResponseFactory
         $showStartButton = $canControl && SessionState::WAITING === $session->state;
         $showStopButton = $canControl && SessionState::OPEN === $session->state;
         $routeParameters = ['sessionId' => $session->id, 'sort' => $sort];
+        $questions = $showQuestions ? $this->questionGateway->findForStage($session->id, $sort) : [];
+        $answerUrls = [];
+
+        if ($showStopButton) {
+            foreach ($questions as $question) {
+                $answerUrls[$question->id] = $this->urlGenerator->generate(
+                    $question->answered ? 'contao_qna_question_unanswered' : 'contao_qna_question_answered',
+                    $routeParameters + ['questionId' => $question->id],
+                );
+            }
+        }
 
         return [
             'session' => $session,
             'status_translation_key' => 'qna.stage.status.'.$session->state->value,
-            'questions' => $showQuestions
-                ? $this->questionGateway->findForStage($session->id, $sort)
-                : [],
+            'questions' => $questions,
+            'unanswered_questions' => array_values(array_filter($questions, static fn (QnaQuestionListItem $question): bool => !$question->answered)),
+            'answered_questions' => array_values(array_filter($questions, static fn (QnaQuestionListItem $question): bool => $question->answered)),
+            'answer_urls' => $answerUrls,
             'show_questions' => $showQuestions,
             'show_start_button' => $showStartButton,
             'show_stop_button' => $showStopButton,

@@ -235,3 +235,30 @@ No other host code or build integration is required. The necessary host
 configuration is limited to the regular/list/reader/stage pages and layouts,
 the stage page's protection and member groups, optional limits, and an
 optional stricter voter.
+
+## Answered questions
+
+During an open session, stage operators with `QNA_SESSION_CONTROL` can mark
+questions as answered and undo that mark. The stage groups unanswered questions
+first and answered questions last, retaining the selected vote/time ordering in
+each section. Closed sessions retain the groups and badges without controls.
+Participants keep their vote-sorted list and see an “Answered” badge. Answered
+questions cannot receive votes, including from stale pages; undo restores voting.
+Existing votes remain intact. No answer text or completion timestamp is stored.
+
+Run the Contao database update before serving the changed code: the additive
+`tl_qna_question.answered` boolean defaults to false for existing and new rows.
+Marking and voting use transactions locking the same question row. Explicit
+answered/unanswered POST actions use Contao CSRF, ownership validation and the
+existing stage voter, with private, no-store 303 redirects retaining the sort.
+
+The database tests run explicitly against the DDEV project and remove their own
+fixtures:
+
+```bash
+ddev exec -d /home/dev/Kunden/github/contao-qna-bundle vendor/bin/phpunit tests/Integration
+```
+
+Run this command from the `contao0507.contao` project directory. The integration
+suite skips other environments and requires PHP's `pcntl` extension to exercise
+both orderings of concurrent marking and voting.

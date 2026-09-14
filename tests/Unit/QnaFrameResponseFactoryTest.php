@@ -168,11 +168,12 @@ final class QnaFrameResponseFactoryTest extends TestCase
         $sessionGateway = $this->createMock(QnaSessionGateway::class);
         $sessionGateway->expects(self::once())->method('findPublished')->with(7)->willReturn($session);
         $question = new QnaQuestionListItem(11, 7, 4, 'Question', 100, 2, false);
+        $answered = new QnaQuestionListItem(12, 7, 4, 'Answered', 101, 1, false, true);
         $questionGateway = $this->createMock(QnaQuestionGateway::class);
         $questionGateway->expects(self::once())
             ->method('findForStage')
             ->with(7, 'votes')
-            ->willReturn([$question]);
+            ->willReturn([$question, $answered]);
         $security = $this->createMock(Security::class);
         $security->expects(self::once())->method('isGranted')->willReturn(false);
         $context = null;
@@ -204,6 +205,9 @@ final class QnaFrameResponseFactoryTest extends TestCase
         self::assertStringContainsString('private', $response->headers->get('Cache-Control', ''));
         self::assertStringContainsString('no-store', $response->headers->get('Cache-Control', ''));
         self::assertIsArray($context);
+        self::assertSame([$question], $context['unanswered_questions']);
+        self::assertSame([$answered], $context['answered_questions']);
+        self::assertSame([], $context['answer_urls']);
         self::assertSame('votes', $context['sort']);
         self::assertSame(10000, $context['polling_interval']);
         self::assertFalse($context['show_start_button']);

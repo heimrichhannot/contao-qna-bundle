@@ -172,3 +172,49 @@ new MutationObserver(() => {
 }).observe(document.documentElement, { childList: true, subtree: true })
 
 discoverFrames()
+
+const submittedStageFocus = new WeakMap()
+
+document.addEventListener("submit", (event) => {
+    const form = event.target
+    const frame = form.closest?.('[data-qna-frame="stage"]')
+
+    if (frame && form.matches(".qna-answer-form") && event.submitter?.id) {
+        submittedStageFocus.set(frame, event.submitter.id)
+    }
+}, true)
+
+document.addEventListener("turbo:submit-end", (event) => {
+    const frame = event.target.closest?.('[data-qna-frame="stage"]')
+
+    if (frame && !event.detail.success && event.detail.fetchResponse?.statusCode !== 422) {
+        submittedStageFocus.delete(frame)
+    }
+})
+
+function preserveStageFocus(render, event) {
+    const active = document.activeElement
+    const frame = event.target.matches("turbo-stream")
+        ? document.getElementById(event.target.getAttribute("target"))
+        : event.target
+    const id = submittedStageFocus.get(frame)
+        || (active?.closest('[data-qna-frame="stage"]') === frame ? active.id : null)
+
+    submittedStageFocus.delete(frame)
+
+    return async (...args) => {
+        await render(...args)
+
+        if (id && (!document.activeElement || document.activeElement === document.body || document.activeElement === active)) {
+            document.getElementById(id)?.focus({ preventScroll: true })
+        }
+    }
+}
+
+document.addEventListener("turbo:before-stream-render", (event) => {
+    event.detail.render = preserveStageFocus(event.detail.render, event)
+})
+
+document.addEventListener("turbo:before-frame-render", (event) => {
+    event.detail.render = preserveStageFocus(event.detail.render, event)
+})

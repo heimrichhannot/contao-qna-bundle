@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace HeimrichHannot\QnaBundle\Service;
 
+use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use HeimrichHannot\QnaBundle\Dto\QnaSession;
 use HeimrichHannot\QnaBundle\Dto\QnaVoteState;
 use HeimrichHannot\QnaBundle\Enum\SessionState;
+use HeimrichHannot\QnaBundle\Exception\QuestionAnsweredException;
 use HeimrichHannot\QnaBundle\Exception\QuestionNotFoundException;
 use HeimrichHannot\QnaBundle\Exception\SessionNotFoundException;
 use HeimrichHannot\QnaBundle\Exception\SessionNotOpenException;
@@ -25,28 +27,35 @@ final readonly class VoteService
         private QnaVoteGateway $voteGateway,
         private FrontendMemberProvider $memberProvider,
         private ClockInterface $clock,
+        private Connection $connection,
     ) {
     }
 
     public function vote(int $questionId, ?int $expectedSessionId = null): QnaVoteState
     {
-        $question = $this->questionGateway->find($questionId)
-            ?? throw new QuestionNotFoundException($questionId);
+        return $this->connection->transactional(function () use ($questionId, $expectedSessionId): QnaVoteState {
+            $question = $this->questionGateway->find($questionId, true)
+                ?? throw new QuestionNotFoundException($questionId);
 
-        if (null !== $expectedSessionId && $question->sessionId !== $expectedSessionId) {
-            throw new QuestionNotFoundException($questionId);
-        }
+            if (null !== $expectedSessionId && $question->sessionId !== $expectedSessionId) {
+                throw new QuestionNotFoundException($questionId);
+            }
 
-        $this->requireOpenSession($question->sessionId);
-        $memberId = $this->memberProvider->getId();
+            $this->requireOpenSession($question->sessionId);
+            if ($question->answered) {
+                throw new QuestionAnsweredException();
+            }
 
-        try {
-            $this->voteGateway->create($question->id, $memberId, $this->clock->now()->getTimestamp());
-        } catch (UniqueConstraintViolationException) {
-            // A concurrent or repeated vote is successful from the member's perspective.
-        }
+            $memberId = $this->memberProvider->getId();
 
-        return $this->voteGateway->getState($question->id, $memberId);
+            try {
+                $this->voteGateway->create($question->id, $memberId, $this->clock->now()->getTimestamp());
+            } catch (UniqueConstraintViolationException) {
+                // A concurrent or repeated vote is successful from the member's perspective.
+            }
+
+            return $this->voteGateway->getState($question->id, $memberId);
+        });
     }
 
     private function requireOpenSession(int $sessionId): QnaSession
