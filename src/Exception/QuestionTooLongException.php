@@ -10,4 +10,9 @@ final class QuestionTooLongException extends QnaDomainException
     {
         parent::__construct(\sprintf('The question exceeds the maximum length of %d characters.', $maximumLength));
     }
+
+    public function translationKey(): string
+    {
+        return 'qna.error.question_too_long';
+    }
 }

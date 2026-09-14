@@ -10,4 +10,9 @@ final class EmptyQuestionException extends QnaDomainException
     {
         parent::__construct('The question must not be empty.');
     }
+
+    public function translationKey(): string
+    {
+        return 'qna.error.empty_question';
+    }
 }

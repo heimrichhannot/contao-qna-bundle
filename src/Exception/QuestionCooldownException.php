@@ -10,4 +10,9 @@ final class QuestionCooldownException extends QnaDomainException
     {
         parent::__construct(\sprintf('Another question can be submitted in %d seconds.', $retryAfter));
     }
+
+    public function translationKey(): string
+    {
+        return 'qna.error.question_cooldown';
+    }
 }

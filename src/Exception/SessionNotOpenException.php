@@ -12,4 +12,9 @@ final class SessionNotOpenException extends QnaDomainException
     {
         parent::__construct(\sprintf('Q&A session %d is %s, not open.', $sessionId, $state->value));
     }
+
+    public function translationKey(): string
+    {
+        return 'qna.error.session_not_open';
+    }
 }

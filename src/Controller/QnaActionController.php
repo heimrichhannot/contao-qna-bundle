@@ -6,16 +6,7 @@ namespace HeimrichHannot\QnaBundle\Controller;
 
 use Contao\CoreBundle\Exception\PageNotFoundException;
 use HeimrichHannot\QnaBundle\Dto\QnaSession;
-use HeimrichHannot\QnaBundle\Exception\AuthenticationRequiredException;
-use HeimrichHannot\QnaBundle\Exception\EmptyQuestionException;
-use HeimrichHannot\QnaBundle\Exception\InvalidSessionTransitionException;
-use HeimrichHannot\QnaBundle\Exception\QuestionAnsweredException;
-use HeimrichHannot\QnaBundle\Exception\QuestionCooldownException;
-use HeimrichHannot\QnaBundle\Exception\QuestionNotFoundException;
-use HeimrichHannot\QnaBundle\Exception\QuestionTooLongException;
-use HeimrichHannot\QnaBundle\Exception\SessionNotFoundException;
-use HeimrichHannot\QnaBundle\Exception\SessionNotOpenException;
-use HeimrichHannot\QnaBundle\Exception\SessionNotPublishedException;
+use HeimrichHannot\QnaBundle\Exception\QnaDomainException;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
 use HeimrichHannot\QnaBundle\Security\Voter\QnaSessionControlVoter;
 use HeimrichHannot\QnaBundle\Service\QuestionAnswerService;
@@ -57,43 +48,15 @@ final readonly class QnaActionController
 
         try {
             $this->questionService->create($sessionId, $question);
-        } catch (AuthenticationRequiredException) {
+        } catch (QnaDomainException $exception) {
+            $this->throwIfNotFound($exception);
+
             return $this->responseFactory->renderReaderControls(
                 $sessionId,
-                'qna.error.authentication_required',
-                Response::HTTP_UNAUTHORIZED,
+                $exception->translationKey(),
+                $exception->statusCode(),
                 $question,
             );
-        } catch (EmptyQuestionException) {
-            return $this->responseFactory->renderReaderControls(
-                $sessionId,
-                'qna.error.empty_question',
-                Response::HTTP_UNPROCESSABLE_ENTITY,
-                $question,
-            );
-        } catch (QuestionTooLongException) {
-            return $this->responseFactory->renderReaderControls(
-                $sessionId,
-                'qna.error.question_too_long',
-                Response::HTTP_UNPROCESSABLE_ENTITY,
-                $question,
-            );
-        } catch (QuestionCooldownException) {
-            return $this->responseFactory->renderReaderControls(
-                $sessionId,
-                'qna.error.question_cooldown',
-                Response::HTTP_UNPROCESSABLE_ENTITY,
-                $question,
-            );
-        } catch (SessionNotOpenException) {
-            return $this->responseFactory->renderReaderControls(
-                $sessionId,
-                'qna.error.session_not_open',
-                Response::HTTP_UNPROCESSABLE_ENTITY,
-                $question,
-            );
-        } catch (SessionNotFoundException|SessionNotPublishedException) {
-            throw new PageNotFoundException();
         }
 
         return $this->redirectToRoute('contao_qna_reader_frame', [
@@ -113,26 +76,14 @@ final readonly class QnaActionController
     {
         try {
             $this->voteService->vote($sessionId, $questionId);
-        } catch (AuthenticationRequiredException) {
+        } catch (QnaDomainException $exception) {
+            $this->throwIfNotFound($exception);
+
             return $this->responseFactory->renderReaderQuestions(
                 $sessionId,
-                'qna.error.authentication_required',
-                Response::HTTP_UNAUTHORIZED,
+                $exception->translationKey(),
+                $exception->statusCode(),
             );
-        } catch (SessionNotOpenException) {
-            return $this->responseFactory->renderReaderQuestions(
-                $sessionId,
-                'qna.error.session_not_open',
-                Response::HTTP_UNPROCESSABLE_ENTITY,
-            );
-        } catch (QuestionAnsweredException) {
-            return $this->responseFactory->renderReaderQuestions(
-                $sessionId,
-                'qna.error.question_answered',
-                Response::HTTP_UNPROCESSABLE_ENTITY,
-            );
-        } catch (QuestionNotFoundException|SessionNotFoundException|SessionNotPublishedException) {
-            throw new PageNotFoundException();
         }
 
         return $this->redirectToRoute('contao_qna_reader_frame', ['sessionId' => $sessionId]);
@@ -152,15 +103,15 @@ final readonly class QnaActionController
 
         try {
             $this->sessionService->start($session->id);
-        } catch (InvalidSessionTransitionException) {
+        } catch (QnaDomainException $exception) {
+            $this->throwIfNotFound($exception);
+
             return $this->responseFactory->renderStage(
                 $session->id,
                 $sort,
-                'qna.error.invalid_transition',
-                Response::HTTP_UNPROCESSABLE_ENTITY,
+                $exception->translationKey(),
+                $exception->statusCode(),
             );
-        } catch (SessionNotFoundException|SessionNotPublishedException) {
-            throw new PageNotFoundException();
         }
 
         return $this->redirectToRoute('contao_qna_stage_questions', [
@@ -183,15 +134,15 @@ final readonly class QnaActionController
 
         try {
             $this->sessionService->stop($session->id);
-        } catch (InvalidSessionTransitionException) {
+        } catch (QnaDomainException $exception) {
+            $this->throwIfNotFound($exception);
+
             return $this->responseFactory->renderStage(
                 $session->id,
                 $sort,
-                'qna.error.invalid_transition',
-                Response::HTTP_UNPROCESSABLE_ENTITY,
+                $exception->translationKey(),
+                $exception->statusCode(),
             );
-        } catch (SessionNotFoundException|SessionNotPublishedException) {
-            throw new PageNotFoundException();
         }
 
         return $this->redirectToRoute('contao_qna_stage_questions', [
@@ -231,10 +182,10 @@ final readonly class QnaActionController
 
         try {
             $this->answerService->setAnswered($sessionId, $questionId, $answered);
-        } catch (SessionNotOpenException) {
-            return $this->responseFactory->renderStage($sessionId, $sort, 'qna.error.session_not_open', Response::HTTP_UNPROCESSABLE_ENTITY);
-        } catch (QuestionNotFoundException|SessionNotFoundException|SessionNotPublishedException) {
-            throw new PageNotFoundException();
+        } catch (QnaDomainException $exception) {
+            $this->throwIfNotFound($exception);
+
+            return $this->responseFactory->renderStage($sessionId, $sort, $exception->translationKey(), $exception->statusCode());
         }
 
         return $this->redirectToRoute('contao_qna_stage_questions', ['sessionId' => $sessionId, 'sort' => $sort]);
@@ -253,6 +204,13 @@ final readonly class QnaActionController
         }
 
         return $session;
+    }
+
+    private function throwIfNotFound(QnaDomainException $exception): void
+    {
+        if (Response::HTTP_NOT_FOUND === $exception->statusCode()) {
+            throw new PageNotFoundException();
+        }
     }
 
     /**

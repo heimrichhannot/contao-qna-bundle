@@ -12,4 +12,9 @@ final class InvalidSessionTransitionException extends QnaDomainException
     {
         parent::__construct(\sprintf('Cannot transition a Q&A session from %s to %s.', $from->value, $to->value));
     }
+
+    public function translationKey(): string
+    {
+        return 'qna.error.invalid_transition';
+    }
 }
