@@ -1,3 +1,4 @@
+- Read and follow `AGENTS.local.md` in the repository root if it exists for additional local instructions.
 - Use Symfony PHP Translation Format for Contao and Other Translations where possible when creating new files.
 - Use Doctrine Schema Representation for Contao DCA SQL Column Definition.
 - Do not define a custom targetColumn for Contao DCA virtual fields unless explicitly requested.
