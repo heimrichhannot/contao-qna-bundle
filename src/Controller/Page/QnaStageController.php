@@ -108,6 +108,16 @@ class QnaStageController extends AbstractPageController
     }
 
     /**
+     * Renders the stage inside a legacy ("default") page layout.
+     *
+     * This deliberately breaks the AGENTS.md rule against writing to
+     * $GLOBALS['TL_HOOKS']: registering a PageRegular subclass in
+     * $GLOBALS['TL_PTY'] would avoid both the runtime hook and the mutable
+     * $legacyArguments field, but Contao 6 removes FrontendIndex::renderLegacy()
+     * and PageRegular anyway, so that rewrite was deferred rather than done
+     * twice. See B16 in .docs/refactor/REFACTOR.md for the researched
+     * alternative and the reasoning. Do not copy this pattern elsewhere.
+     *
      * @param array{alias: string, sort: QuestionSort} $arguments
      */
     private function renderLegacy(PageModel $pageModel, array $arguments): Response

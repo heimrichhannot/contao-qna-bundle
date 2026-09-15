@@ -355,48 +355,101 @@ enthalten mit `hasVoted` und dem CSRF-Token mitgliedsbezogene Daten.
 Die TTL wird deshalb bewusst unter dem Polling-Intervall gehalten und in
 `DECISIONS.md` begründet.
 
-### B15 — Keine Erweiterungspunkte für ein verteilbares Bundle
+### B15 — Keine Erweiterungspunkte für ein verteilbares Bundle — **ZURÜCKGESTELLT**
 
 Alle Klassen sind `final readonly` ohne Interfaces; die einzige dokumentierte
 Naht ist `QnaSessionControlVoter`. Ein Host-Projekt, das bei einer neuen Frage
 benachrichtigen, eine Session automatisch schließen oder Statuswechsel
 protokollieren will, hat keinen Ansatzpunkt.
 
-**Zielbild:** `QuestionCreatedEvent`, `SessionStartedEvent`,
-`SessionClosedEvent` — dispatcht **nach** dem Commit, nie innerhalb der
-Transaktion. Das ist der Unterschied zwischen einem Bundle und einer Anwendung.
+**Lösungsweg, falls der Bedarf entsteht:** `QuestionCreatedEvent`,
+`SessionStartedEvent`, `SessionClosedEvent` — dispatcht **nach** dem Commit, nie
+innerhalb der Transaktion. `transactional()` gibt das Ergebnis bereits zurück
+(`QuestionService::create()`, `SessionService::start()`/`stop()`), dispatcht wird
+im äußeren Methodenrumpf. Ein Listener innerhalb der Transaktion sähe
+ungeschriebenen Zustand, verlängerte die Session-Sperre, und eine Exception in
+ihm rollte die fachliche Operation zurück.
 
-Das verletzt `SPEC.md` §1.1 nicht: Dort sind *Benachrichtigungen* als
-Funktionsumfang ausgeschlossen, nicht die Naht, an der ein Host sie selbst
-anbringt.
+**Zurückgestellt am 15.09.2026.** Begründung: Es gibt keinen benannten Abnehmer,
+und `SPEC.md` §1.1 schließt Benachrichtigungen, Moderation und Export
+ausdrücklich als Funktionsumfang aus. Entscheidend ist, dass Events **rein
+additiv** sind — anders als die Schichtungsbefunde werden sie durch Warten nicht
+teurer. Sobald ein Host-Projekt konkret einen Haken braucht, lassen sie sich
+ohne Bruch an bestehendem Code nachrüsten. Bis dahin wären es drei Klassen,
+eine neue Dispatcher-Abhängigkeit und zwei Tests für einen hypothetischen
+Konsumenten.
 
-### B16 — Der Legacy-Layout-Pfad verletzt die eigenen Regeln
+Wieder aufgreifen, wenn ein Host-Projekt einen konkreten Anwendungsfall nennt.
 
-`src/Controller/Page/QnaStageController.php:104-137` verbiegt zur Laufzeit
+### B16 — Der Legacy-Layout-Pfad verletzt die eigenen Regeln — **ZURÜCKGESTELLT**
+
+`src/Controller/Page/QnaStageController.php:113-144` verbiegt zur Laufzeit
 `$GLOBALS['TL_HOOKS']['generatePage']` und legt die Renderargumente in
 `private ?array $legacyArguments` ab — **veränderlicher Zustand auf einem
-geteilten Service** (Zeile 32).
+geteilten Service** (Zeile 34).
 
-Drei Probleme:
+Zwei Probleme:
 
 1. `AGENTS.md` verbietet wörtlich das Eintragen von Hooks in
    `$GLOBALS['TL_HOOKS']`.
 2. Ein Subrequest, der eine zweite Bühnenseite rendert, überschreibt das Feld.
    Der Pfad ist nicht reentrant.
-3. Das veränderliche Feld ist der Grund, warum die Klasse als einzige nicht
-   `final readonly` sein kann.
 
-`FrontendIndex::renderPage()` ist laut `.docs/build/DECISIONS.md` in Contao 6
-ohnehin zur Entfernung vorgesehen.
+Ein drittes Problem stand hier ursprünglich — das Feld verhindere `final`. Das
+war falsch: Es verhindert nur `readonly`. `final` ist unabhängig davon möglich
+und wird in B17.4 erledigt.
 
-**Zielbild:** Unterstützung für `default`-Layouts entfällt, oder sie wird in
-einen `LegacyStageRenderer` ausgelagert, der seine Argumente explizit
-entgegennimmt, `@deprecated` markiert ist und zum nächsten Major verschwindet.
-Die Entscheidung wird in `DECISIONS.md` festgehalten.
+#### Lösungsweg über `$GLOBALS['TL_PTY']` (recherchiert, nicht umgesetzt)
 
-Unabhängig davon baut `QnaStageController::getContent()` (Zeilen 147-180) die
-Übersichts-Arrays inline zusammen und dupliziert damit, wofür
-`QnaSessionListViewFactory` existiert.
+Der Legacy-Pfad lässt sich **ohne** Laufzeit-Hook bauen. Die Kette im Core:
+
+| Schritt | Beleg |
+| --- | --- |
+| `AbstractPageController::renderPage()` verzweigt per `match` auf `layout->type` | `vendor/contao/core-bundle/src/Controller/Page/AbstractPageController.php:50-54` |
+| `handleDefaultLayout()` (protected) delegiert an den Legacy-Renderer | ebenda, `:65-68` |
+| `FrontendIndex::renderLegacy()` löst den Handler auf | `vendor/contao/core-bundle/contao/controllers/FrontendIndex.php:45` |
+| `$GLOBALS['TL_PTY'][$objPage->type] ?? PageRegular::class`, dann `new $pageType()` | ebenda, `:64-67` |
+| Einsprungpunkt `PageRegular::createTemplate()` ist `protected`; `main` wird dort auf `''` gesetzt | `vendor/contao/core-bundle/contao/pages/PageRegular.php:383` bzw. `:515` |
+
+`$GLOBALS['TL_PTY']` ist eine statische Registrierung zur Konfigurationszeit
+(Core: `contao/config/config.php:354`); dieses Bundle nutzt dieselbe Datei
+bereits für `$GLOBALS['BE_MOD']`. Eine `PageRegular`-Unterklasse, dort
+registriert, setzt den Inhalt am Ende eines überschriebenen `createTemplate()` —
+weil die Bühnenseite mit `contentComposition: false` registriert ist, gibt es
+keine Artikelschleife, die `main` danach überschreibt. Damit entfallen beide
+Probleme: statische statt dynamischer Registrierung, und `new $pageType()`
+erzeugt eine Instanz pro Request.
+
+Nebenbei würde `QnaStageController::executeRender()` überflüssig — die
+Verzweigung modern/default macht `AbstractPageController::renderPage()` selbst.
+
+Einschränkung: Der Handler wird per `new` ohne DI erzeugt und müsste seine
+Abhängigkeiten über `System::getContainer()` ziehen.
+
+#### Zurückgestellt am 15.09.2026
+
+Drei Gründe:
+
+1. **Der Reentranz-Fehler ist latent, nicht aktiv.** Er braucht einen Subrequest,
+   der eine zweite Bühnenseite rendert. Die Bühne ist ein Seitentyp mit
+   `contentComposition: false` — keine Artikel, keine Inhaltselemente —, und das
+   Bundle bringt keinen Mechanismus mit, der eine Seite in eine Seite rendert.
+   Innerhalb eines Requests stellt der `finally`-Block Hook und Feld korrekt
+   wieder her.
+2. **Contao 6 erzwingt den Umbau ohnehin.** `FrontendIndex::renderPage()` ist
+   seit 5.7 deprecated, `renderLegacy()` ist `@internal`, `PageRegular`
+   verschwindet. Auch die `TL_PTY`-Variante wäre nur bis dahin haltbar. Der
+   Aufwand fiele beim Contao-6-Wechsel erneut an, dann unter Randbedingungen,
+   die heute niemand kennt.
+3. **Der Pfad wird gebraucht.** Ein Entfernen von `default`-Layouts (die
+   ursprünglich erwogene Variante A) steht nicht zur Debatte.
+
+Solange der Hook bleibt, trägt die Codestelle einen Kommentar, der auf diesen
+Abschnitt verweist — damit die Abweichung von `AGENTS.md` nicht beiläufig
+„repariert" oder als Präzedenzfall gelesen wird.
+
+Wieder aufgreifen beim Contao-6-Wechsel, spätestens wenn der Legacy-Pfad
+tatsächlich bricht.
 
 ### B17 — Kleinere Befunde
 
@@ -408,6 +461,7 @@ Unabhängig davon baut `QnaStageController::getContent()` (Zeilen 147-180) die
 | B17.4 | Die drei Contao-Controller sind nicht `final`, während alles andere `final readonly` ist. Nur beim Voter gibt es dafür einen dokumentierten Grund. |
 | B17.5 | `QuestionService::create()` überschreibt seinen eigenen `string`-Parameter `$question` (`src/Service/QuestionService.php:39`) und gibt am Ende ein `QnaQuestion` zurück. |
 | B17.6 | Alle Klassen tragen das Präfix `Qna`, obwohl der Namespace es bereits sagt (`HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway`). Kosmetisch, wird nur im Zuge ohnehin verschobener Klassen bereinigt. |
+| B17.7 | `QnaStageController::getContent()` (Zeilen 149-182) baut die Übersichts-Arrays inline zusammen und dupliziert damit, wofür `QnaSessionListViewFactory` existiert. Stammt aus dem gestrichenen B16-Umfang und ist von der dortigen Zurückstellung unabhängig. |
 
 ### B18 — Template-Tests prüfen Quelltext statt Verhalten
 
@@ -436,8 +490,13 @@ wörtliche Palettenstrings prüft.
 | 3 | `prompts/phase-3-gateways.md` | B4, B5, B6, B7 | ja |
 | 4 | `prompts/phase-4-view.md` | B8, B9, B10, B11 | ja |
 | 5 | `prompts/phase-5-tests-performance.md` | B12, B13, B14, B18 | nein (B13, B14) |
-| 6 | `prompts/phase-6-extensibility.md` | B15, B16 | nein |
-| 7 | `prompts/phase-7-cleanup.md` | B17 | ja |
+| ~~6~~ | ~~`prompts/phase-6-extensibility.md`~~ | ~~B15, B16~~ | **entfällt** |
+| 7 | `prompts/phase-7-cleanup.md` | B17.1 – B17.7 | ja |
+
+**Phase 6 ist am 15.09.2026 gestrichen.** Beide Befunde sind zurückgestellt
+(Begründungen dort); der Prompt wurde gelöscht. Der einzige verbliebene Punkt
+aus ihrem Umfang — die Duplizierung in `getContent()` — ist als B17.7 nach
+Phase 7 gewandert. **Phase 7 ist damit die letzte Phase.**
 
 Begründung der Reihenfolge:
 
@@ -449,5 +508,4 @@ Begründung der Reihenfolge:
 * **4** — der große Umbau, bewusst nach 1-3, damit er kleiner ausfällt.
 * **5 nach 4** — die Integrationstests (B12) sind das Sicherheitsnetz für die
   Denormalisierung (B13) und die Cache-Änderung (B14).
-* **6 und 7** zuletzt, weil sie fachliche Entscheidungen bzw. reine Kosmetik
-  sind.
+* **7 zuletzt**, weil es reine Kosmetik ist.

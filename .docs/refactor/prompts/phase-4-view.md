@@ -143,7 +143,7 @@ Damit verschwinden die Konstruktor-Parameter `int $pollingInterval` aus
 * Keine Änderung an den Templates außer Umbenennungen, die aus Schritt 1
   zwingend folgen. Insbesondere keine Umstrukturierung der Includes.
 * Keine Cache-Header-Änderung. Das ist Phase 5 (B14).
-* Kein Legacy-Layout-Umbau. Das ist Phase 6 (B16). `QnaStageController` wird
+* Kein Legacy-Layout-Umbau (B16 — inzwischen zurückgestellt). `QnaStageController` wird
   hier nur insoweit angefasst, wie B10 und B11 es erzwingen.
 
 ## Akzeptanzkriterien

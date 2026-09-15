@@ -3,9 +3,11 @@
 Lies zuerst `.docs/refactor/REFACTOR.md` §0 vollständig. Die dortigen Regeln
 gelten für diese Phase und werden hier nicht wiederholt.
 
-**Befunde dieser Phase:** B17.1 bis B17.6
+**Befunde dieser Phase:** B17.1 bis B17.7
 **Verhaltensneutral:** ja (§0.4)
-**Voraussetzung:** Phasen 1-6 sind abgeschlossen und committet.
+**Voraussetzung:** Phasen 1-5 sind abgeschlossen und committet. **Phase 6
+entfällt** — B15 und B16 sind zurückgestellt, siehe `REFACTOR.md`. Diese Phase
+schließt das Programm ab.
 
 ---
 
@@ -109,8 +111,10 @@ Contao-Basisklasse es zulässt — `AbstractContentElementController` und
 `AbstractPageController` bringen eigene Felder mit; prüfe das nach §0.2, statt
 es anzunehmen.
 
-`QnaStageController` sollte nach Phase 6 bereits `final` sein. Prüfen, nicht
-doppelt machen.
+`QnaStageController` ist noch **nicht** `final` — Phase 6 entfällt, also
+passiert es hier. Wichtig: Das veränderliche Feld `legacyArguments` verhindert
+nur `readonly`, nicht `final`. Die Klasse wird `final`, bleibt aber
+nicht-`readonly`; das ist korrekt und kein offener Rest.
 
 Der Voter bleibt nicht-`final`. Sein Kommentar bleibt.
 
@@ -155,6 +159,27 @@ dekorieren. Das ist Bruch ohne Gegenwert.
 Notiere die Entscheidung in `REFACTOR.md` unter B17.6, damit die Frage nicht
 in sechs Monaten erneut gestellt wird.
 
+## B17.7 — `getContent()` dupliziert die View-Factory
+
+`QnaStageController::getContent()` (Zeilen 149-182) baut die Übersichts-Arrays
+für `stage_overview.html.twig` inline zusammen — `id`, `title`, `state`,
+`status_translation_key`, `url` — und dupliziert damit, wofür
+`src/View/QnaSessionListViewFactory.php` existiert.
+
+Der Punkt stammt aus dem gestrichenen B16-Umfang und ist von dessen
+Zurückstellung unabhängig: Er betrifft nur den Aufbau der Übersicht, nicht den
+Legacy-Renderpfad.
+
+**Aufgabe:** In eine View-Factory mit typisiertem Rückgabewert unter
+`src/View/Model/` ziehen, nach dem Muster von `StageViewFactory`/`StageView` aus
+Phase 4. Ob `QnaSessionListViewFactory` erweitert wird oder eine zweite Factory
+entsteht, entscheidest du — die beiden Übersichten unterscheiden sich darin,
+dass die Bühne zusätzlich `state` und den Status-Schlüssel braucht und ihre URLs
+über `PageRoute::PAGE_BASED_ROUTE_NAME` erzeugt.
+
+**Nicht anfassen:** `renderLegacy()`, `renderPageContent()`, `legacyArguments`
+und die `TL_HOOKS`-Helfer. Die bleiben bewusst stehen (B16).
+
 ## Nicht-Ziele
 
 * Keine neuen Features.
@@ -173,6 +198,10 @@ in sechs Monaten erneut gestellt wird.
 4. Alle Controller sind `final`; der Voter ist es begründet nicht.
 5. Kein überschriebener Parameter in `QuestionService::create()`.
 6. `REFACTOR.md` enthält die Entscheidung zu B17.6 und etwaige Folgebefunde.
+7. Die Übersichts-Arrays werden nicht mehr im Controller gebaut; `grep -rn
+   "status_translation_key" src/Controller/` ist leer.
+8. `QnaStageController` trägt an der `TL_HOOKS`-Stelle einen Kommentar, der auf
+   B16 in `REFACTOR.md` verweist.
 
 ## Checks
 
@@ -189,8 +218,10 @@ php tools/manifest.php --check
 Diese Phase schließt den Umbau ab. Fasse zusammen:
 
 * Zeilenzahl `src/` vor Phase 1 und nach Phase 7.
-* Welche Befunde vollständig erledigt sind, welche bewusst offen blieben
-  (insbesondere B14, falls Phase 5 ihn zurückgestellt hat) und warum.
-* Alle Ergänzungen in `.docs/build/DECISIONS.md` aus den Phasen 3, 5 und 6.
+* Welche Befunde vollständig erledigt sind, welche bewusst offen blieben und
+  warum — mindestens B15 und B16 (zurückgestellt, Phase 6 gestrichen) sowie
+  B14, falls Phase 5 ihn zurückgestellt hat.
+* Alle Ergänzungen in `.docs/build/DECISIONS.md` aus den Phasen 3 und 5
+  (Stand: bis `D11`).
 * Neue Folgebefunde, die während des Umbaus aufgefallen sind — als neue
   Abschnitte in `REFACTOR.md`, nicht als lose Notiz.
