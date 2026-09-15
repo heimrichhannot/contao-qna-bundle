@@ -1,106 +1,137 @@
-.qna-session-list__items,
-.qna-question-list {
-    display: grid;
-    gap: 1rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
+/*
+ * Everything lives in the "qna" cascade layer. Unlayered CSS always wins over
+ * layered CSS, regardless of specificity or source order, so a project can
+ * override any rule below with a plain selector and does not have to care
+ * whether its own stylesheet is loaded before or after this one.
+ *
+ * Projects that use layers themselves can position this one explicitly:
+ *
+ *     @layer qna, theme;
+ *
+ * The custom properties are the intended adjustment points. They default to
+ * currentColor and inherit, so the bundle takes on the surrounding theme
+ * instead of imposing colours of its own.
+ */
+@layer qna {
+    :root {
+        --qna-gap: 1rem;
+        --qna-gap-sm: 0.5rem;
+        --qna-padding: 0.75rem;
+        --qna-radius: 0.2rem;
+        --qna-border-width: 0.125rem;
+        --qna-border-color: currentColor;
+        --qna-accent-color: currentColor;
+        --qna-accent-width: 0.25rem;
+        --qna-separator-color: currentColor;
+        --qna-focus-color: currentColor;
+        --qna-answered-opacity: 0.75;
+        --qna-input-block-size: 7rem;
+    }
 
-.qna-reader__frame,
-.qna-reader__questions-frame,
-.qna-questions,
-.qna-stage__frame {
-    display: block;
-}
+    .qna-session-list__items,
+    .qna-question-list {
+        display: grid;
+        gap: var(--qna-gap);
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
 
-.qna-session-list__link,
-.qna-button,
-.qna-question-form__input {
-    border-radius: 0.2rem;
-}
+    .qna-reader__frame,
+    .qna-reader__questions-frame,
+    .qna-questions,
+    .qna-stage__frame {
+        display: block;
+    }
 
-.qna-session-list__link:focus-visible,
-.qna-button:focus-visible,
-.qna-question-form__input:focus-visible {
-    outline: 0.2rem solid currentColor;
-    outline-offset: 0.2rem;
-}
+    .qna-session-list__link,
+    .qna-button,
+    .qna-question-form__input {
+        border-radius: var(--qna-radius);
+    }
 
-.qna-reader__status {
-    padding: 0.75rem;
-    border-inline-start: 0.25rem solid currentColor;
-    font-weight: 600;
-}
+    .qna-session-list__link:focus-visible,
+    .qna-button:focus-visible,
+    .qna-question-form__input:focus-visible {
+        outline: 0.2rem solid var(--qna-focus-color);
+        outline-offset: 0.2rem;
+    }
 
-.qna-stage__status,
-.qna-message {
-    padding: 0.75rem;
-    border-inline-start: 0.25rem solid currentColor;
-}
+    .qna-reader__status {
+        padding: var(--qna-padding);
+        border-inline-start: var(--qna-accent-width) solid var(--qna-accent-color);
+        font-weight: 600;
+    }
 
-.qna-message--error {
-    font-weight: 600;
-}
+    .qna-stage__status,
+    .qna-message {
+        padding: var(--qna-padding);
+        border-inline-start: var(--qna-accent-width) solid var(--qna-accent-color);
+    }
 
-.qna-stage__sorting {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-    margin-block: 1rem;
-}
+    .qna-message--error {
+        font-weight: 600;
+    }
 
-.qna-stage__sorting [aria-current="true"] {
-    font-weight: 700;
-}
+    .qna-stage__sorting {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--qna-gap);
+        margin-block: var(--qna-gap);
+    }
 
-.qna-stage__action {
-    margin-block: 1rem;
-}
+    .qna-stage__sorting [aria-current="true"] {
+        font-weight: 700;
+    }
 
-.qna-question-form {
-    display: grid;
-    gap: 0.5rem;
-    margin-block: 1rem;
-}
+    .qna-stage__action {
+        margin-block: var(--qna-gap);
+    }
 
-.qna-question-form__input {
-    min-block-size: 7rem;
-    padding: 0.5rem;
-}
+    .qna-question-form {
+        display: grid;
+        gap: var(--qna-gap-sm);
+        margin-block: var(--qna-gap);
+    }
 
-.qna-button {
-    padding: 0.5rem 0.75rem;
-    border: 0.125rem solid currentColor;
-    background: transparent;
-    color: inherit;
-    cursor: pointer;
-}
+    .qna-question-form__input {
+        min-block-size: var(--qna-input-block-size);
+        padding: var(--qna-gap-sm);
+    }
 
-.qna-vote-button--selected {
-    font-weight: 700;
-}
+    .qna-button {
+        padding: var(--qna-gap-sm) var(--qna-padding);
+        border: var(--qna-border-width) solid var(--qna-border-color);
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+    }
 
-.qna-question {
-    padding-block: 1rem;
-    border-block-end: 0.0625rem solid currentColor;
-}
+    .qna-vote-button--selected {
+        font-weight: 700;
+    }
 
-/* Deliberately subtle: the modifiers are hooks for project themes, the bundle
-   only makes them visible enough to be recognisable without any theming. */
-.qna-question--answered {
-    opacity: 0.75;
-}
+    .qna-question {
+        padding-block: var(--qna-gap);
+        border-block-end: 0.0625rem solid var(--qna-separator-color);
+    }
 
-.qna-question--own {
-    border-inline-start: 0.1875rem solid currentColor;
-    padding-inline-start: 0.5rem;
-}
+    /* Deliberately subtle: the modifiers are hooks for project themes, the bundle
+       only makes them visible enough to be recognisable without any theming. */
+    .qna-question--answered {
+        opacity: var(--qna-answered-opacity);
+    }
 
-.qna-question__answered {
-    display: inline-block;
-    padding: 0.25rem 0.5rem;
-    border: 0.0625rem solid currentColor;
-    border-radius: 0.2rem;
-    font-weight: 600;
+    .qna-question--own {
+        border-inline-start: 0.1875rem solid var(--qna-accent-color);
+        padding-inline-start: var(--qna-gap-sm);
+    }
+
+    .qna-question__answered {
+        display: inline-block;
+        padding: 0.25rem var(--qna-gap-sm);
+        border: 0.0625rem solid var(--qna-border-color);
+        border-radius: var(--qna-radius);
+        font-weight: 600;
+    }
 }

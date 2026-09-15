@@ -112,6 +112,70 @@ Contao appends the root page's configured URL suffix where applicable, for
 example `.html`. The list displays published sessions only. A missing,
 unknown or unpublished reader/stage alias returns 404.
 
+## Styling
+
+All bundle styles live in the `qna` cascade layer:
+
+```css
+@layer qna { /* … */ }
+```
+
+Unlayered CSS always beats layered CSS, regardless of specificity or source
+order. A project can therefore override any rule with a plain selector and does
+not have to care whether its stylesheet is loaded before or after `huh_qna.css`:
+
+```css
+.qna-button { border-radius: 0; }
+```
+
+Projects that use cascade layers themselves can position this one explicitly:
+
+```css
+@layer qna, theme;
+```
+
+The bundle defines no colours of its own — borders and outlines default to
+`currentColor` and the text colour is inherited, so the surrounding theme
+carries through. For adjustments without rewriting rules, override the custom
+properties:
+
+| Property | Default | Affects |
+| --- | --- | --- |
+| `--qna-gap` | `1rem` | list gaps, block spacing |
+| `--qna-gap-sm` | `0.5rem` | form gaps, inner padding |
+| `--qna-padding` | `0.75rem` | status and message padding |
+| `--qna-radius` | `0.2rem` | buttons, links, textarea |
+| `--qna-border-width` | `0.125rem` | button borders |
+| `--qna-border-color` | `currentColor` | button and badge borders |
+| `--qna-accent-color` | `currentColor` | status bars, own-question marker |
+| `--qna-accent-width` | `0.25rem` | status bar width |
+| `--qna-separator-color` | `currentColor` | separator between questions |
+| `--qna-focus-color` | `currentColor` | focus outline |
+| `--qna-answered-opacity` | `0.75` | answered questions |
+| `--qna-input-block-size` | `7rem` | question textarea height |
+
+```css
+:root {
+    --qna-accent-color: #c00;
+    --qna-radius: 0;
+}
+```
+
+Two modifier classes are meant as theming hooks and are styled only minimally by
+the bundle: `.qna-question--answered` on answered questions and
+`.qna-question--own` on questions submitted by the current member. The stage
+never sets `--own`, because its question list is member-agnostic.
+
+Element attributes are built with Contao's `HtmlAttributes`, so templates can be
+extended without copying them — every element merges a matching
+`*_attributes` variable, for example:
+
+```twig
+{% embed '@Contao/qna/question.html.twig' with {
+    question_attributes: attrs().set('data-analytics', 'question')
+} %}{% endembed %}
+```
+
 ## Technical architecture
 
 The bundle contains two content elements and one page controller:

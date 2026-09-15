@@ -546,6 +546,34 @@ Zwei Nebenbefunde, die der Umbau ans Licht gebracht hat:
    er hätte also aufgehört zu testen, ohne rot zu werden. Beide Frame-Tests
    rendern jetzt und prüfen das DOM (vgl. B18).
 
+### B21 — Styles waren nur mit Glück überschreibbar — **ERLEDIGT**
+
+Gut war bereits: durchgehend Spezifität `0-1-0`, kein `!important`, keine
+eigenen Farben (alles `currentColor`/`inherit`), logische Eigenschaften.
+
+Zwei Schwächen:
+
+1. **Kein einziger Custom Property.** Jeder Wert war ein Literal; wer den
+   Button-Radius ändern wollte, musste die ganze Regel neu schreiben.
+2. **Die Kaskadenreihenfolge war Zufall.** Ob das Projekt-CSS nach
+   `huh_qna.css` lädt, hängt an der Encore-Entry-Reihenfolge. Lud es davor, war
+   der Override wirkungslos.
+
+**Umgesetzt am 15.09.2026:** Alle Regeln liegen in `@layer qna`, dazu zwölf
+Custom Properties mit den bisherigen Literalen als Defaults.
+
+Ungelayertes CSS schlägt gelayertes unabhängig von Spezifität **und**
+Reihenfolge. Im Browser gegengeprüft, Projekt-CSS jeweils **vor** dem
+Bundle-CSS geladen:
+
+| Variante | `padding` |
+| --- | --- |
+| Bundle mit `@layer` | `42px` — Projekt gewinnt |
+| Bundle ohne `@layer` (Gegenprobe) | `8px 12px` — Bundle gewinnt |
+
+Kein optischer Bruch: berechnete Stile über sieben Klassen und neun
+Eigenschaften vorher/nachher identisch. Dokumentiert im README unter „Styling".
+
 ---
 
 ## 2. Phasenübersicht
