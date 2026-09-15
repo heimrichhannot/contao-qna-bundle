@@ -21,7 +21,8 @@ class QnaQuestionGateway
             q.createdAt,
             q.answered,
             q.voteCount,
-            CASE WHEN v.id IS NOT NULL THEN 1 ELSE 0 END AS hasVoted
+            CASE WHEN v.id IS NOT NULL THEN 1 ELSE 0 END AS hasVoted,
+            CASE WHEN :memberId > 0 AND q.memberId = :memberId THEN 1 ELSE 0 END AS isOwn
         FROM tl_qna_question q
         LEFT JOIN tl_qna_vote v ON v.pid = q.id AND :memberId > 0 AND v.memberId = :memberId
         WHERE q.pid = :sessionId
@@ -159,6 +160,7 @@ class QnaQuestionGateway
             $row->int('voteCount'),
             $row->bool('hasVoted'),
             $row->bool('answered'),
+            $row->bool('isOwn'),
         );
     }
 

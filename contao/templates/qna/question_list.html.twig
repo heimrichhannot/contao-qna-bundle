@@ -1,8 +1,14 @@
-<div id="{{ frame_id }}" class="qna-questions">
+{% set list_attributes = attrs()
+    .set('id', frame_id)
+    .addClass('qna-questions')
+    .mergeWith(list_attributes|default)
+%}
+
+<div{{ list_attributes }}>
     {% if questions is empty %}
         <p class="qna-empty">{{ (empty_translation_key|default('qna.questions.empty'))|trans({}, 'contao_default') }}</p>
     {% else %}
-        <ol class="qna-question-list">
+        <ol{{ attrs().addClass('qna-question-list').mergeWith(items_attributes|default) }}>
             {% for question in questions %}
                 {% include '@Contao/qna/question.html.twig' with {
                     question: question,

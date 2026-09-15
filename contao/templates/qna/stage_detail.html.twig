@@ -1,17 +1,24 @@
-<section class="qna-stage qna-stage--detail">
+{% set stage_attributes = attrs()
+    .addClass(['qna-stage', 'qna-stage--detail'])
+    .mergeWith(stage_attributes|default)
+%}
+{% set frame_attributes = attrs()
+    .set('id', frame_id)
+    .addClass('qna-stage__frame')
+    .set('src', frame_src)
+    .set('loading', 'lazy')
+    .set('refresh', 'morph')
+    .set('data-qna-frame', 'stage')
+    .set('data-qna-poll')
+    .set('data-qna-poll-interval', polling_interval)
+    .set('data-qna-poll-max-interval', polling_max_interval)
+    .mergeWith(frame_attributes|default)
+%}
+
+<section{{ stage_attributes }}>
     <h1>{{ session.title }}</h1>
 
-    <turbo-frame
-        id="{{ frame_id }}"
-        class="qna-stage__frame"
-        src="{{ frame_src }}"
-        loading="lazy"
-        refresh="morph"
-        data-qna-frame="stage"
-        data-qna-poll
-        data-qna-poll-interval="{{ polling_interval }}"
-        data-qna-poll-max-interval="{{ polling_max_interval }}"
-    >
+    <turbo-frame{{ frame_attributes }}>
         <p class="qna-stage__loading">{{ 'qna.stage.loading'|trans({}, 'contao_default') }}</p>
     </turbo-frame>
 </section>

@@ -1,5 +1,18 @@
-<li id="qna-question-{{ question.id }}" class="qna-question-list__item">
-    <article class="qna-question" aria-labelledby="qna-question-{{ question.id }}-text">
+{% set item_attributes = attrs()
+    .set('id', "qna-question-#{question.id}")
+    .addClass('qna-question-list__item')
+    .mergeWith(item_attributes|default)
+%}
+{% set question_attributes = attrs()
+    .addClass('qna-question')
+    .addClass('qna-question--answered', question.answered)
+    .addClass('qna-question--own', question.isOwn)
+    .set('aria-labelledby', "qna-question-#{question.id}-text")
+    .mergeWith(question_attributes|default)
+%}
+
+<li{{ item_attributes }}>
+    <article{{ question_attributes }}>
         <p id="qna-question-{{ question.id }}-text" class="qna-question__text">{{ question.question }}</p>
         <p class="qna-question__votes">
             {{ 'qna.question.vote_count'|trans([question.voteCount], 'contao_default') }}
@@ -10,24 +23,30 @@
         {% endif %}
 
         {% if answer_url|default(null) %}
-            <form class="qna-answer-form" action="{{ answer_url }}" method="post">
+            <form{{ attrs().addClass('qna-answer-form').set('action', answer_url).set('method', 'post') }}>
                 <input type="hidden" name="REQUEST_TOKEN" value="{{ request_token }}">
-                <button id="qna-question-{{ question.id }}-answer" class="qna-button" type="submit" aria-describedby="qna-question-{{ question.id }}-text">
+                <button{{ attrs()
+                    .set('id', "qna-question-#{question.id}-answer")
+                    .addClass('qna-button')
+                    .set('type', 'submit')
+                    .set('aria-describedby', "qna-question-#{question.id}-text")
+                }}>
                     {{ (question.answered ? 'qna.question.mark_unanswered' : 'qna.question.mark_answered')|trans({}, 'contao_default') }}
                 </button>
             </form>
         {% endif %}
 
         {% if show_vote_button and not question.answered %}
-            <form class="qna-vote-form" action="{{ vote_url }}" method="post">
+            <form{{ attrs().addClass('qna-vote-form').set('action', vote_url).set('method', 'post') }}>
                 <input type="hidden" name="REQUEST_TOKEN" value="{{ request_token }}">
-                <button
-                    id="qna-question-{{ question.id }}-vote"
-                    class="qna-button qna-vote-button{{ question.hasVoted ? ' qna-vote-button--selected' : '' }}"
-                    type="submit"
-                    aria-label="{{ (question.hasVoted ? 'qna.vote.selected_label' : 'qna.vote.label')|trans([question.question], 'contao_default') }}"
-                    aria-pressed="{{ question.hasVoted ? 'true' : 'false' }}"
-                >
+                <button{{ attrs()
+                    .set('id', "qna-question-#{question.id}-vote")
+                    .addClass(['qna-button', 'qna-vote-button'])
+                    .addClass('qna-vote-button--selected', question.hasVoted)
+                    .set('type', 'submit')
+                    .set('aria-label', (question.hasVoted ? 'qna.vote.selected_label' : 'qna.vote.label')|trans([question.question], 'contao_default'))
+                    .set('aria-pressed', question.hasVoted ? 'true' : 'false')
+                }}>
                     {{ (question.hasVoted ? 'qna.vote.selected' : 'qna.vote.submit')|trans({}, 'contao_default') }}
                 </button>
             </form>

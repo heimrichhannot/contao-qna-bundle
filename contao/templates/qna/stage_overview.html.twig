@@ -1,4 +1,9 @@
-<section class="qna-stage qna-stage--overview">
+{% set overview_attributes = attrs()
+    .addClass(['qna-stage', 'qna-stage--overview'])
+    .mergeWith(overview_attributes|default)
+%}
+
+<section{{ overview_attributes }}>
     <h1>{{ 'qna.stage.overview.title'|trans({}, 'contao_default') }}</h1>
 
     {% if sessions is empty %}
@@ -8,7 +13,10 @@
             {% for session in sessions %}
                 <li class="qna-session-list__item">
                     <a class="qna-session-list__link" href="{{ session.url }}">{{ session.title }}</a>
-                    <span class="qna-session-list__status qna-session-list__status--{{ session.state }}">
+                    <span{{ attrs()
+                        .addClass(['qna-session-list__status', "qna-session-list__status--#{session.state}"])
+                        .mergeWith(status_attributes|default)
+                    }}>
                         {{ session.status_translation_key|trans({}, 'contao_default') }}
                     </span>
                 </li>

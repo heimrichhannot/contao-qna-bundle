@@ -57,41 +57,6 @@ final class QnaTurboAssetTest extends TestCase
         self::assertStringContainsString('Turbo.morphTurboFrameElements', $polling);
     }
 
-    public function testEveryPollingTemplateFrameHasASource(): void
-    {
-        $reader = $this->read('contao/templates/content_element/qna_session_reader.html.twig');
-        self::assertSame(2, substr_count($reader, '<turbo-frame'));
-        self::assertSame(1, preg_match_all('/\bdata-qna-poll(?=\s|>)/', $reader));
-        self::assertMatchesRegularExpression(
-            '/<turbo-frame(?=[^>]*src="{{ questions_frame_src }}")(?=[^>]*refresh="morph")(?=[^>]*data-qna-poll(?:\\s|>))[^>]*>/s',
-            $reader,
-        );
-
-        $stage = $this->read('contao/templates/qna/stage_detail.html.twig');
-        self::assertSame(1, substr_count($stage, '<turbo-frame'));
-        self::assertSame(1, preg_match_all('/\bdata-qna-poll(?=\s|>)/', $stage));
-        self::assertMatchesRegularExpression(
-            '/<turbo-frame(?=[^>]*src="{{ frame_src }}")(?=[^>]*refresh="morph")(?=[^>]*data-qna-poll(?:\\s|>))[^>]*>/s',
-            $stage,
-        );
-    }
-
-    public function testFrameResponsesDoNotReferenceTheirOwnSourceUrl(): void
-    {
-        foreach ([
-            'contao/templates/qna/reader_controls_frame.html.twig',
-            'contao/templates/qna/reader_questions_frame.html.twig',
-            'contao/templates/qna/stage_questions.html.twig',
-        ] as $path) {
-            $template = $this->read($path);
-            self::assertSame(1, preg_match('/<turbo-frame\b[^>]*>/s', $template, $matches));
-            $openingTag = $matches[0] ?? null;
-            self::assertIsString($openingTag);
-            self::assertStringNotContainsString('src=', $openingTag);
-            self::assertStringNotContainsString('data-qna-poll', $openingTag);
-        }
-    }
-
     private function read(string $path): string
     {
         $contents = file_get_contents(\dirname(__DIR__, 2).'/'.$path);

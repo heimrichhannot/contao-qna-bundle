@@ -1,9 +1,12 @@
-<turbo-frame
-    id="{{ view.questionsFrameId }}"
-    class="qna-reader__questions-frame"
-    data-qna-frame="reader-questions"
-    data-qna-state="{{ view.state }}"
->
+{% set frame_attributes = attrs()
+    .set('id', view.questionsFrameId)
+    .addClass('qna-reader__questions-frame')
+    .set('data-qna-frame', 'reader-questions')
+    .set('data-qna-state', view.state)
+    .mergeWith(frame_attributes|default)
+%}
+
+<turbo-frame{{ frame_attributes }}>
     {% include '@Contao/qna/reader_questions.html.twig' %}
     {% include '@Contao/qna/reader_controls_update.html.twig' with {reset_question_form: false} %}
 </turbo-frame>

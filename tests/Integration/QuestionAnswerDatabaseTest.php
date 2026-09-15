@@ -75,6 +75,48 @@ final class QuestionAnswerDatabaseTest extends TestCase
         self::assertSame(1, $questions->findForSession($this->sessionId, 0)[0]->voteCount);
     }
 
+    public function testOwnQuestionIsMarkedOnlyForItsAuthorAndNeverOnTheStage(): void
+    {
+        $questions = new QnaQuestionGateway($this->connection);
+        $otherId = $questions->create($this->sessionId, 4711, 'Question by somebody else', 200);
+
+        try {
+            $byAuthor = $this->indexById($questions->findForSession($this->sessionId, 4711));
+            self::assertTrue($byAuthor[$otherId]->isOwn);
+            self::assertFalse($byAuthor[$this->questionId]->isOwn);
+
+            $byStranger = $this->indexById($questions->findForSession($this->sessionId, 4712));
+            self::assertFalse($byStranger[$otherId]->isOwn);
+
+            // memberId 0 is the guest/stage case and must never own anything,
+            // even though the fixture question itself carries memberId 0.
+            $asGuest = $this->indexById($questions->findForSession($this->sessionId, 0));
+            self::assertFalse($asGuest[$this->questionId]->isOwn);
+
+            foreach ($questions->findForStage($this->sessionId) as $question) {
+                self::assertFalse($question->isOwn);
+            }
+        } finally {
+            $this->connection->delete('tl_qna_question', ['id' => $otherId]);
+        }
+    }
+
+    /**
+     * @param list<\HeimrichHannot\QnaBundle\Domain\QuestionListItem> $questions
+     *
+     * @return array<int, \HeimrichHannot\QnaBundle\Domain\QuestionListItem>
+     */
+    private function indexById(array $questions): array
+    {
+        $indexed = [];
+
+        foreach ($questions as $question) {
+            $indexed[$question->id] = $question;
+        }
+
+        return $indexed;
+    }
+
     public function testNewQuestionIncludesAuthorVoteAndCannotBeVotedTwice(): void
     {
         $question = $this->questionService(new QnaVoteGateway($this->connection))->create($this->sessionId, 'Automatically voted question');

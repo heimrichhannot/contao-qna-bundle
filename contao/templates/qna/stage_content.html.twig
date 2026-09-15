@@ -1,16 +1,23 @@
-<div data-qna-poll-interval="{{ polling_interval }}" data-qna-state="{{ session.state.value }}">
+{% set content_attributes = attrs()
+    .set('data-qna-poll-interval', polling_interval)
+    .set('data-qna-state', session.state.value)
+    .mergeWith(content_attributes|default)
+%}
+
+<div{{ content_attributes }}>
     {% if error_translation_key %}
         <p class="qna-message qna-message--error" role="alert">
             {{ error_translation_key|trans({}, 'contao_default') }}
         </p>
     {% endif %}
 
-    <p
-        id="qna-session-{{ session.id }}-stage-status"
-        class="qna-stage__status qna-stage__status--{{ session.state.value }}"
-        role="status"
-        aria-live="polite"
-    >
+    <p{{ attrs()
+        .set('id', "qna-session-#{session.id}-stage-status")
+        .addClass(['qna-stage__status', "qna-stage__status--#{session.state.value}"])
+        .set('role', 'status')
+        .set('aria-live', 'polite')
+        .mergeWith(status_attributes|default)
+    }}>
         {{ status_translation_key|trans({}, 'contao_default') }}
     </p>
 

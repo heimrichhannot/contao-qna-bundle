@@ -48,6 +48,7 @@ final class QnaQuestionGatewayTest extends TestCase
                     'answered' => 1,
                     'voteCount' => 3,
                     'hasVoted' => 1,
+                    'isOwn' => 1,
                 ],
             ]);
 
@@ -56,6 +57,7 @@ final class QnaQuestionGatewayTest extends TestCase
         self::assertCount(1, $items);
         self::assertSame(3, $items[0]->voteCount);
         self::assertTrue($items[0]->hasVoted);
+        self::assertTrue($items[0]->isOwn);
     }
 
     #[DataProvider('sortingProvider')]
@@ -85,6 +87,7 @@ final class QnaQuestionGatewayTest extends TestCase
                     'answered' => 1,
                     'voteCount' => 3,
                     'hasVoted' => 0,
+                    'isOwn' => 0,
                 ],
             ]);
 
@@ -93,5 +96,7 @@ final class QnaQuestionGatewayTest extends TestCase
         self::assertCount(1, $items);
         self::assertSame(3, $items[0]->voteCount);
         self::assertFalse($items[0]->hasVoted);
+        // The stage is member-agnostic: nobody's questions are marked as their own.
+        self::assertFalse($items[0]->isOwn);
     }
 }

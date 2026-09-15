@@ -498,6 +498,54 @@ Damit sind B17.2 und B17.3 miterledigt, statt behandelt zu werden.
 steht derzeit `dev-main`. Sobald das Repository ein Tag hat, auf `^0.1`
 umstellen und `composer update` ausführen.
 
+### B20 — Templates nutzten Contaos `HtmlAttributes` nicht — **ERLEDIGT**
+
+Attribute wurden als Zeichenketten zusammengesetzt, bedingte Klassen als
+Ternaries im `class`-Attribut:
+
+```twig
+class="qna-question{{ question.answered ? ' qna-question--answered' : '' }}"
+```
+
+Damit gab es keinen Erweiterungspunkt: Ein Projekt, das ein Attribut ergänzen
+wollte, musste das Template kopieren.
+
+**Umgesetzt am 15.09.2026** nach dem Core-Idiom
+(`vendor/contao/core-bundle/contao/templates/twig/form_row.html.twig`,
+`content_element/_base.html.twig`):
+
+```twig
+{% set question_attributes = attrs()
+    .addClass('qna-question')
+    .addClass('qna-question--answered', question.answered)
+    .mergeWith(question_attributes|default)
+%}
+<article{{ question_attributes }}>
+```
+
+Das `mergeWith(…|default)` am Ende ist der Erweiterungspunkt. Belegte API:
+`ContaoExtension.php:197` (`attrs`), `String/HtmlAttributes.php` (`addClass`
+mit `condition`-Parameter, `set`, `mergeWith`, `setIfExists`).
+
+**Abgrenzung:** Umgestellt wurden Elemente mit bedingten Attributen und die
+strukturellen Anker (Frames, Container, Formulare, Buttons). Rein statische
+Einzelklassen wie `<p class="qna-question__votes">` blieben unverändert — dort
+wäre der Builder Rauschen ohne Gewinn.
+
+Zwei Nebenbefunde, die der Umbau ans Licht gebracht hat:
+
+1. Die Test-Twig-Umgebung kannte `attrs()` nicht **und** registrierte
+   `HtmlAttributes` nicht als *safe class*. Letzteres führte zu doppeltem
+   Escaping — in Produktion macht `ContaoExtension` das über
+   `addSafeClass(HtmlAttributes::class, ['html', 'contao_html'])`. Die Fixture
+   bildet das jetzt nach; ohne diesen Fund hätte die Testumgebung stillschweigend
+   anders gerendert als die Produktion.
+2. `QnaTurboAssetTest::testFrameResponsesDoNotReferenceTheirOwnSourceUrl` prüfte
+   den Template-**Quelltext** auf die Abwesenheit von `src=`. Nach der Umstellung
+   wäre der Test grün geblieben, selbst wenn `attrs()` ein `src` gesetzt hätte —
+   er hätte also aufgehört zu testen, ohne rot zu werden. Beide Frame-Tests
+   rendern jetzt und prüfen das DOM (vgl. B18).
+
 ---
 
 ## 2. Phasenübersicht

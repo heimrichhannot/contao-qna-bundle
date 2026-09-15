@@ -1,8 +1,11 @@
-<turbo-frame
-    id="{{ view.frameId }}"
-    class="qna-reader__frame"
-    data-qna-frame="reader-controls"
-    data-qna-state="{{ view.state }}"
->
+{% set frame_attributes = attrs()
+    .set('id', view.frameId)
+    .addClass('qna-reader__frame')
+    .set('data-qna-frame', 'reader-controls')
+    .set('data-qna-state', view.state)
+    .mergeWith(frame_attributes|default)
+%}
+
+<turbo-frame{{ frame_attributes }}>
     {% include '@Contao/qna/reader_controls.html.twig' %}
 </turbo-frame>

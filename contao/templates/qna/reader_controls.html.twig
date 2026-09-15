@@ -1,35 +1,45 @@
-<div
-    id="{{ view.controlsContentId }}"
-    class="qna-reader__controls qna-reader__controls--{{ view.state }}"
-    data-qna-state="{{ view.state }}"
->
+{% set controls_attributes = attrs()
+    .set('id', view.controlsContentId)
+    .addClass(['qna-reader__controls', "qna-reader__controls--#{view.state}"])
+    .set('data-qna-state', view.state)
+    .mergeWith(controls_attributes|default)
+%}
+
+<div{{ controls_attributes }}>
     {% if error_translation_key %}
         <p class="qna-message qna-message--error" role="alert">
             {{ error_translation_key|trans({}, 'contao_default') }}
         </p>
     {% endif %}
 
-    <p class="qna-reader__status qna-reader__status--{{ view.state }}" role="status" aria-live="polite">
+    <p{{ attrs()
+        .addClass(['qna-reader__status', "qna-reader__status--#{view.state}"])
+        .set('role', 'status')
+        .set('aria-live', 'polite')
+        .mergeWith(status_attributes|default)
+    }}>
         {{ view.statusTranslationKey|trans({}, 'contao_default') }}
     </p>
 
     {% if view.showQuestionForm %}
-        <form
-            class="qna-question-form"
-            action="{{ question_form_action }}"
-            method="post"
-            data-turbo-frame="{{ view.questionsFrameId }}"
-        >
+        <form{{ attrs()
+            .addClass('qna-question-form')
+            .set('action', question_form_action)
+            .set('method', 'post')
+            .set('data-turbo-frame', view.questionsFrameId)
+            .mergeWith(form_attributes|default)
+        }}>
             <label class="qna-question-form__label" for="qna-session-{{ view.sessionId }}-question">
                 {{ 'qna.question.label'|trans({}, 'contao_default') }}
             </label>
-            <textarea
-                class="qna-question-form__input"
-                id="qna-session-{{ view.sessionId }}-question"
-                name="question"
-                maxlength="{{ max_question_length }}"
-                required
-            >{{ question_value }}</textarea>
+            <textarea{{ attrs()
+                .addClass('qna-question-form__input')
+                .set('id', "qna-session-#{view.sessionId}-question")
+                .set('name', 'question')
+                .set('maxlength', max_question_length)
+                .set('required')
+                .mergeWith(input_attributes|default)
+            }}>{{ question_value }}</textarea>
             <input type="hidden" name="REQUEST_TOKEN" value="{{ request_token }}">
             <button class="qna-button qna-question-form__submit" type="submit">
                 {{ 'qna.question.submit'|trans({}, 'contao_default') }}

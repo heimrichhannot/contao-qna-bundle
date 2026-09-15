@@ -86,6 +86,17 @@
     border-block-end: 0.0625rem solid currentColor;
 }
 
+/* Deliberately subtle: the modifiers are hooks for project themes, the bundle
+   only makes them visible enough to be recognisable without any theming. */
+.qna-question--answered {
+    opacity: 0.75;
+}
+
+.qna-question--own {
+    border-inline-start: 0.1875rem solid currentColor;
+    padding-inline-start: 0.5rem;
+}
+
 .qna-question__answered {
     display: inline-block;
     padding: 0.25rem 0.5rem;

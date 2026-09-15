@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace HeimrichHannot\QnaBundle\Tests\Unit;
 
 use HeimrichHannot\QnaBundle\Domain\QuestionListItem;
+use HeimrichHannot\QnaBundle\Domain\Session;
+use HeimrichHannot\QnaBundle\Enum\SessionState;
 use HeimrichHannot\QnaBundle\Tests\Fixtures\TemplateEnvironment;
 use PHPUnit\Framework\TestCase;
 use Twig\Environment;
@@ -48,6 +50,74 @@ final class QnaTemplateStructureTest extends TestCase
         $context['view']['showVoteButtons'] = false;
         $context['questions'] = [];
         self::assertSame($html, $this->twig()->render('@Contao/content_element/qna_session_reader.html.twig', $context));
+    }
+
+    public function testOnlyTheOutermostFrameCarriesSourceAndPolling(): void
+    {
+        // Rendered, not grepped: after the switch to attrs() a source check against
+        // the template source would pass even if a src were added.
+        $context = $this->readerContext();
+        $context['frame_id'] = 'stage-frame';
+        $context['frame_src'] = '/stage';
+        $context['polling_max_interval'] = 40000;
+        $context['session'] = new Session(7, 'Session', 'session', true, SessionState::OPEN, 100, null);
+
+        $outer = $this->dom($this->twig()->render('@Contao/qna/stage_detail.html.twig', $context))
+            ->getElementsByTagName('turbo-frame')->item(0)
+        ;
+        self::assertInstanceOf(\DOMElement::class, $outer);
+        self::assertSame('/stage', $outer->getAttribute('src'));
+        self::assertSame('morph', $outer->getAttribute('refresh'));
+        self::assertTrue($outer->hasAttribute('data-qna-poll'));
+        self::assertSame('40000', $outer->getAttribute('data-qna-poll-max-interval'));
+    }
+
+    public function testFrameResponsesCarryNeitherSourceNorPolling(): void
+    {
+        // A frame response that repeated its own src would poll itself recursively.
+        foreach ([
+            '@Contao/qna/reader_controls_frame.html.twig',
+            '@Contao/qna/reader_questions_frame.html.twig',
+        ] as $template) {
+            $frames = $this->dom($this->twig()->render($template, $this->readerContext()))
+                ->getElementsByTagName('turbo-frame')
+            ;
+            self::assertSame(1, $frames->length, $template);
+            $frame = $frames->item(0);
+            self::assertInstanceOf(\DOMElement::class, $frame);
+            self::assertFalse($frame->hasAttribute('src'), $template);
+            self::assertFalse($frame->hasAttribute('data-qna-poll'), $template);
+        }
+    }
+
+    public function testAnsweredAndOwnQuestionsCarryTheirModifierClasses(): void
+    {
+        $context = $this->readerContext();
+        $context['questions'] = [
+            // id, sessionId, memberId, text, createdAt, voteCount, hasVoted, answered, isOwn
+            new QuestionListItem(23, 7, 42, 'Own and answered', 100, 3, true, true, true),
+            new QuestionListItem(24, 7, 43, 'Someone else, open', 101, 1, false, false, false),
+            new QuestionListItem(25, 7, 42, 'Own, still open', 102, 0, false, false, true),
+        ];
+        $dom = $this->dom($this->twig()->render('@Contao/qna/reader_questions.html.twig', $context));
+
+        $classes = static function (\DOMDocument $dom, int $id): string {
+            $item = $dom->getElementById('qna-question-'.$id);
+            self::assertInstanceOf(\DOMElement::class, $item);
+            $article = $item->getElementsByTagName('article')->item(0);
+            self::assertInstanceOf(\DOMElement::class, $article);
+
+            return $article->getAttribute('class');
+        };
+
+        self::assertStringContainsString('qna-question--answered', $classes($dom, 23));
+        self::assertStringContainsString('qna-question--own', $classes($dom, 23));
+
+        self::assertStringNotContainsString('qna-question--answered', $classes($dom, 24));
+        self::assertStringNotContainsString('qna-question--own', $classes($dom, 24));
+
+        self::assertStringNotContainsString('qna-question--answered', $classes($dom, 25));
+        self::assertStringContainsString('qna-question--own', $classes($dom, 25));
     }
 
     public function testQuestionPartialsRenderAccessibleSelectedVote(): void

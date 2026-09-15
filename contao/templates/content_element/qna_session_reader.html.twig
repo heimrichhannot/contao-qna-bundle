@@ -8,26 +8,28 @@
     {% else %}
         <div class="qna-reader">
             <h2 class="qna-reader__title">{{ view.title }}</h2>
-            <turbo-frame
-                id="{{ view.frameId }}"
-                class="qna-reader__frame"
-                src="{{ controls_frame_src }}"
-                loading="lazy"
-                data-qna-frame="reader-controls"
-            >
+            <turbo-frame{{ attrs()
+                .set('id', view.frameId)
+                .addClass('qna-reader__frame')
+                .set('src', controls_frame_src)
+                .set('loading', 'lazy')
+                .set('data-qna-frame', 'reader-controls')
+                .mergeWith(controls_frame_attributes|default)
+            }}>
                 <p class="qna-reader__loading">{{ 'qna.reader.loading'|trans({}, 'contao_default') }}</p>
             </turbo-frame>
-            <turbo-frame
-                id="{{ view.questionsFrameId }}"
-                class="qna-reader__questions-frame"
-                src="{{ questions_frame_src }}"
-                loading="lazy"
-                refresh="morph"
-                data-qna-frame="reader-questions"
-                data-qna-poll
-                data-qna-poll-interval="{{ polling_interval }}"
-                data-qna-poll-max-interval="{{ polling_max_interval }}"
-            >
+            <turbo-frame{{ attrs()
+                .set('id', view.questionsFrameId)
+                .addClass('qna-reader__questions-frame')
+                .set('src', questions_frame_src)
+                .set('loading', 'lazy')
+                .set('refresh', 'morph')
+                .set('data-qna-frame', 'reader-questions')
+                .set('data-qna-poll')
+                .set('data-qna-poll-interval', polling_interval)
+                .set('data-qna-poll-max-interval', polling_max_interval)
+                .mergeWith(questions_frame_attributes|default)
+            }}>
                 <p class="qna-reader__loading">{{ 'qna.reader.loading'|trans({}, 'contao_default') }}</p>
             </turbo-frame>
         </div>

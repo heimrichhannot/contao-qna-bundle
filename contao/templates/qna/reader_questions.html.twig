@@ -1,4 +1,11 @@
-<div class="qna-reader__questions" data-qna-poll-interval="{{ polling_interval }}" data-qna-state="{{ view.state }}">
+{% set questions_attributes = attrs()
+    .addClass('qna-reader__questions')
+    .set('data-qna-poll-interval', polling_interval)
+    .set('data-qna-state', view.state)
+    .mergeWith(questions_attributes|default)
+%}
+
+<div{{ questions_attributes }}>
     {% if error_translation_key %}
         <p class="qna-message qna-message--error" role="alert">
             {{ error_translation_key|trans({}, 'contao_default') }}
