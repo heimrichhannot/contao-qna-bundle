@@ -15,11 +15,3 @@
         <p class="qna-stage__loading">{{ 'qna.stage.loading'|trans({}, 'contao_default') }}</p>
     </turbo-frame>
 </section>
-
-{% add 'qna_styles' to stylesheets %}
-    <link rel="stylesheet" href="{{ asset('qna.css', 'heimrich_hannot_qna') }}">
-{% endadd %}
-
-{% add 'qna_frontend' to body %}
-    <script type="module" src="{{ asset('qna.js', 'heimrich_hannot_qna') }}"></script>
-{% endadd %}

@@ -344,3 +344,65 @@ Kontext. Der Cache-Test rendert die realen Stage-/Reader-Views für HTML und
 Streams, Zustände und Steuerberechtigungen. DCA-Palettenstring-Tests bleiben
 bestehen: Die Palette selbst ist ein String; ein Umbau bringt hier keinen
 zusätzlichen Verhaltensnachweis.
+
+## D12: Front-End-Assets über Encore statt vendorierter Dateien (Refactor, 15.09.2026)
+
+Die ursprüngliche Lösung — `public/qna.js`, `public/qna.css`, eine vendorierte
+Turbo-Kopie und eine handgepflegte `public/manifest.json` — hat den Hausstandard
+von Heimrich & Hannot parallel neu erfunden.
+`heimrichhannot/contao-ux-turbo-encore` liefert mit
+`assets/js/turbo_no_drive.js` exakt dieselbe Absicht
+(`import * as Turbo from '@hotwired/turbo'; Turbo.session.drive = false;`) und
+dieselbe Turbo-Version 8.0.23.
+
+Die Zusage „kein Build-Step im Host-Projekt" im README war **kein bewusster
+Produktentscheid**, sondern beim Bau entstanden und wurde übersehen. Sie ist
+damit hinfällig.
+
+Neue Struktur:
+
+* `assets/js/qna.js` und `assets/css/qna.css` sind Quellen, `public/` entfällt
+  vollständig. Damit ist der in `DECISIONS.md` seit jeher beschriebene
+  Quellordner erstmals auch der tatsächliche.
+* `src/Asset/EncoreExtension.php` deklariert den Entry `huh_qna`
+  (`setRequiresCss(true)`) gemäß `HeimrichHannot\EncoreContracts\EncoreExtensionInterface`.
+* Die drei Controller aktivieren Entrypoints über
+  `HeimrichHannot\EncoreContracts\PageAssetsTrait::addPageEntrypoint()`. Ohne
+  Fallback-Assets ist der Aufruf ohne Encore-Bundle ein No-Op — ein
+  Nicht-Encore-Betrieb ist ausdrücklich nicht mehr vorgesehen.
+* Turbo wird **nicht** von `qna.js` importiert und **nicht** vom Bundle
+  aktiviert. Das Projekt aktiviert `huh_ux_turbo_encore` (mit Drive) oder
+  `huh_ux_turbo_encore_no_drive` (ohne) in Layout oder Seite; beide sind
+  Head-Scripts und legen die Instanz auf `window.Turbo`. Fehlt beides, meldet
+  `qna.js` das auf der Konsole.
+
+  **Begründung:** Ob Turbo Drive die Navigation abfängt, ist eine
+  projektweite Entscheidung. Eine frühere Fassung hängte
+  `huh_ux_turbo_encore_no_drive` hart an — das hätte in einem Projekt, das Drive
+  bewusst nutzt, die Navigation still abgeschaltet.
+
+  Eine bedingte Aktivierung („nur ergänzen, wenn noch kein Turbo-Entry aktiv
+  ist") ist mit der vorhandenen API **nicht** zuverlässig umsetzbar:
+  `EntryPointsBuilder::build()` führt drei Quellen erst zur Ausgabezeit zusammen
+  — den `EntryBag` aus dem ResponseContext (Zeile 70), `tl_layout.encoreEntries`
+  (Zeile 82) und die `tl_page`-Kette samt Vererbung (Zeile 94).
+  `FrontendAsset::isActiveEntrypoint()` prüft nur den Bag und sieht die im
+  Backend konfigurierten Entries also gar nicht. Der einzige Event des Bundles
+  (`EncoreEnabledEvent`) greift eine Ebene höher. Belege:
+  `vendor/heimrichhannot/contao-encore-bundle/src/EntryPoint/EntryPointsBuilder.php`,
+  `src/Asset/FrontendAsset.php`.
+* Entrypoints werden in `getContent()` bzw. `getResponse()` aktiviert, nicht in
+  `__invoke()`: `FrontendAsset::addActiveEntrypoint()` schreibt in den
+  ResponseContext und ist ein **stiller No-Op**, solange dieser nicht existiert —
+  und er entsteht erst beim Rendern.
+
+Belegte APIs: `heimrichhannot/contao-encore-contracts` 1.5.0
+(`EncoreEntry.php`, `EncoreExtensionInterface.php`, `PageAssetsTrait.php`,
+`AddPageEntrypointTrait.php`), `heimrichhannot/contao-ux-turbo-encore`
+(`src/EncoreExtension.php`, Konstanten `DEFAULT` und `NO_DRIVER`).
+
+**Offen:** `contao-ux-turbo-encore` ist nicht getaggt (nur `dev-main`, weder auf
+packagist.org noch im Repository existiert eine Version), obwohl das dortige
+CHANGELOG ein `[0.1.0]` ausweist. Bis zum Tag steht in der `composer.json`
+`dev-main`. Danach auf `^0.1` umstellen und `composer update` ausführen.
+

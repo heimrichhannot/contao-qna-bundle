@@ -10,6 +10,8 @@ use Contao\CoreBundle\DependencyInjection\Attribute\AsContentElement;
 use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\CoreBundle\Twig\FragmentTemplate;
 use Contao\PageModel;
+use HeimrichHannot\EncoreContracts\PageAssetsTrait;
+use HeimrichHannot\QnaBundle\Asset\EncoreExtension;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
 use HeimrichHannot\QnaBundle\View\QnaSessionListViewFactory;
 use Symfony\Component\HttpFoundation\Request;
@@ -18,6 +20,8 @@ use Symfony\Component\HttpFoundation\Response;
 #[AsContentElement(type: 'qna_session_list', category: 'qna')]
 class QnaSessionListController extends AbstractContentElementController
 {
+    use PageAssetsTrait;
+
     public function __construct(
         private readonly ContaoFramework $framework,
         private readonly QnaSessionGateway $sessionGateway,
@@ -28,6 +32,7 @@ class QnaSessionListController extends AbstractContentElementController
     protected function getResponse(FragmentTemplate $template, ContentModel $model, Request $request): Response
     {
         $this->framework->initialize();
+        $this->addPageEntrypoint(EncoreExtension::ENTRY);
 
         $jumpTo = $model->row()['jumpTo'] ?? null;
 

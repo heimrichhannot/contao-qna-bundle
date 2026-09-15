@@ -8,38 +8,40 @@ use PHPUnit\Framework\TestCase;
 
 final class QnaTurboAssetTest extends TestCase
 {
-    public function testTurboIsPinnedAndAnExistingInstanceIsKeptUnchanged(): void
+    public function testTurboComesFromTheSharedEncoreEntryInsteadOfAVendoredCopy(): void
     {
-        $turbo = $this->read('public/turbo.es2017-esm.js');
-        $polling = $this->read('public/qna.js');
+        $polling = $this->read('assets/js/qna.js');
 
-        self::assertStringStartsWith("/*!\nTurbo 8.0.23", $turbo);
-        self::assertStringContainsString('let Turbo = window.Turbo', $polling);
-        self::assertStringContainsString('if (!Turbo)', $polling);
-        self::assertStringContainsString(
-            'await import("./turbo.es2017-esm.js?v=b9d35d123a07")',
-            $polling,
-        );
-        self::assertStringContainsString('Turbo.session.drive = false', $polling);
-        self::assertStringNotContainsString('import * as Turbo', $polling);
+        // Turbo comes from an entry the project activates; the bundle must not
+        // impose the Drive setting by pulling in a specific entry itself.
+        self::assertStringContainsString('const Turbo = window.Turbo', $polling);
+        self::assertStringContainsString('console.error', $polling);
+        self::assertStringNotContainsString('await import(', $polling);
+        self::assertStringNotContainsString('Turbo.session.drive', $polling);
+        self::assertStringNotContainsString("import * as Turbo from '@hotwired/turbo'", $polling);
+        self::assertStringContainsString('import "../css/qna.css"', $polling);
         self::assertStringNotContainsString('2500', $polling);
+
+        self::assertFileDoesNotExist(\dirname(__DIR__, 2).'/public');
     }
 
-    public function testEveryPublicAssetHasACacheBustingManifestEntry(): void
+    public function testTheBundleDoesNotActivateATurboEntryItself(): void
     {
-        $manifest = json_decode($this->read('public/manifest.json'), true, flags: \JSON_THROW_ON_ERROR);
-        self::assertIsArray($manifest);
-
-        foreach (['qna.css', 'qna.js', 'turbo.es2017-esm.js'] as $asset) {
-            $hash = substr(hash('sha256', $this->read('public/'.$asset)), 0, 12);
-
-            self::assertSame($asset.'?v='.$hash, $manifest[$asset] ?? null);
+        // Forcing huh_ux_turbo_encore_no_drive would switch Turbo Drive off for
+        // the whole project. That choice belongs to the project, not to us.
+        foreach ([
+            'src/Controller/Page/QnaStageController.php',
+            'src/Controller/ContentElement/QnaSessionReaderController.php',
+            'src/Controller/ContentElement/QnaSessionListController.php',
+        ] as $path) {
+            self::assertStringNotContainsString('huh_ux_turbo_encore', $this->read($path));
+            self::assertStringNotContainsString('NO_DRIVER', $this->read($path));
         }
     }
 
     public function testPollingImplementsVisibilityBackoffAndCleanup(): void
     {
-        $polling = $this->read('public/qna.js');
+        $polling = $this->read('assets/js/qna.js');
 
         self::assertStringContainsString('document.hidden', $polling);
         self::assertStringContainsString('BACKOFF_FACTOR ** state.failures', $polling);

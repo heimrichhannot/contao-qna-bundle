@@ -11,6 +11,8 @@ use Contao\CoreBundle\Exception\PageNotFoundException;
 use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\CoreBundle\Twig\FragmentTemplate;
 use Contao\Input;
+use HeimrichHannot\EncoreContracts\PageAssetsTrait;
+use HeimrichHannot\QnaBundle\Asset\EncoreExtension;
 use HeimrichHannot\QnaBundle\Domain\Session;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
 use HeimrichHannot\QnaBundle\Service\PollingPolicy;
@@ -22,6 +24,8 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 #[AsContentElement(type: 'qna_session_reader', category: 'qna')]
 class QnaSessionReaderController extends AbstractContentElementController
 {
+    use PageAssetsTrait;
+
     public function __construct(
         private readonly ContaoFramework $framework,
         private readonly QnaSessionGateway $sessionGateway,
@@ -38,6 +42,8 @@ class QnaSessionReaderController extends AbstractContentElementController
 
             return $template->getResponse();
         }
+
+        $this->addPageEntrypoint(EncoreExtension::ENTRY);
 
         $session = $this->resolveSession();
         $this->tagResponse('contao.db.tl_qna_session.'.$session->id);

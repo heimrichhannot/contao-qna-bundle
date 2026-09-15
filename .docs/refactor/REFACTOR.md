@@ -456,8 +456,8 @@ tatsächlich bricht.
 | Kennung | Befund |
 | --- | --- |
 | B17.1 | `DELETE_MODE` steht doppelt in `EventListener/CloseAccountEventListener.php` und `EventListener/Hook/CloseAccountListener.php`; beide liegen zudem auf unterschiedlicher Verzeichnistiefe, obwohl `AGENTS.md` für Hooks `EventListener/Hook/` vorschreibt. |
-| B17.2 | `public/manifest.json` pflegt Hashes von Hand; `public/qna.js:4` wiederholt `turbo.es2017-esm.js?v=b9d35d123a07` ein zweites Mal. Ein veralteter Hash liefert allen Nutzenden stale Caches, ohne dass etwas anschlägt. |
-| B17.3 | `assets/` enthält nur `.gitkeep`, während `public/` die Quellen hält — entgegen der in `DECISIONS.md` dokumentierten Absicht. |
+| B17.2 | ~~`public/manifest.json` pflegt Hashes von Hand; `public/qna.js:4` wiederholt den Turbo-Hash ein zweites Mal.~~ **Erledigt am 15.09.2026** durch die Umstellung auf Encore (siehe unten): Manifest, vendorierte Turbo-Kopie und die Hash-Dopplung sind ersatzlos entfallen. |
+| B17.3 | ~~`assets/` enthält nur `.gitkeep`, während `public/` die Quellen hält.~~ **Erledigt am 15.09.2026**: `assets/js/` und `assets/css/` sind jetzt die echten Quellen, `public/` ist entfallen. Die Beschreibung in `DECISIONS.md` stimmt damit erstmals. |
 | B17.4 | Die drei Contao-Controller sind nicht `final`, während alles andere `final readonly` ist. Nur beim Voter gibt es dafür einen dokumentierten Grund. |
 | B17.5 | `QuestionService::create()` überschreibt seinen eigenen `string`-Parameter `$question` (`src/Service/QuestionService.php:39`) und gibt am Ende ein `QnaQuestion` zurück. |
 | B17.6 | Alle Klassen tragen das Präfix `Qna`, obwohl der Namespace es bereits sagt (`HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway`). Kosmetisch, wird nur im Zuge ohnehin verschobener Klassen bereinigt. |
@@ -478,6 +478,25 @@ Quelltext zu durchsuchen.
 
 Dasselbe gilt abgeschwächt für `tests/Unit/DcaConfigurationTest.php`, das auf
 wörtliche Palettenstrings prüft.
+
+### B19 — Front-End-Assets liefen am Hausstandard vorbei — **ERLEDIGT**
+
+`public/qna.js` importierte Turbo dynamisch aus einer vendorierten Kopie mit
+hartkodiertem Hash, während `heimrichhannot/contao-ux-turbo-encore` mit
+`turbo_no_drive.js` exakt dieselbe Sache bereits löst — gleiche Absicht, gleiche
+Turbo-Version 8.0.23.
+
+Die README-Zusage „kein Build-Step im Host-Projekt", die dem entgegenstand, war
+kein Produktentscheid, sondern beim Bau entstanden und wurde übersehen.
+
+**Umgesetzt am 15.09.2026:** Umstellung auf Encore. Details, Belege und der
+offene Punkt zum fehlenden Tag stehen in `.docs/build/DECISIONS.md` unter `D12`.
+Damit sind B17.2 und B17.3 miterledigt, statt behandelt zu werden.
+
+**Offen und blockierend für `composer install` in Fremdprojekten:**
+`heimrichhannot/contao-ux-turbo-encore` ist ungetaggt. In der `composer.json`
+steht derzeit `dev-main`. Sobald das Repository ein Tag hat, auf `^0.1`
+umstellen und `composer update` ausführen.
 
 ---
 

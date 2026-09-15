@@ -10,12 +10,30 @@ session on a protected stage page.
 - Contao 5.7
 - a database supported by Contao and Doctrine DBAL
 - Turbo Frames in the browser
+- a project set up for [Contao Encore Bundle](https://github.com/heimrichhannot/contao-encore-bundle)
 
-The package ships pinned Turbo 8.0.23. Its JavaScript module imports that copy
-only if `window.Turbo` does not already exist. If the host already provides
-Turbo, the bundle uses that instance and does not change
-`Turbo.session.drive`. No JavaScript build step is required in the host
-project.
+The bundle ships its front end assets as Webpack Encore entries rather than as
+prebuilt files. Its own entry is `huh_qna`; the controllers activate it for the
+pages that need it.
+
+**Turbo has to be provided by the project.** Activate one of the two entries
+from [contao-ux-turbo-encore](https://github.com/heimrichhannot/contao-ux-turbo-encore)
+in the layout or page settings:
+
+| Entry | Turbo Drive |
+| --- | --- |
+| `huh_ux_turbo_encore` | enabled |
+| `huh_ux_turbo_encore_no_drive` | disabled |
+
+The bundle works with either and deliberately does not activate one itself:
+whether Turbo Drive intercepts navigation is a site-wide decision, and a bundle
+silently turning it off would break projects that rely on it. Both entries are
+head scripts exposing the instance as `window.Turbo`, which the Q&A entry
+reuses instead of bundling a second copy. If neither is active, the Q&A
+JavaScript logs an error to the browser console.
+
+Consequence: the host project needs an Encore build (`yarn`/`webpack`). See
+the Encore Bundle documentation for the project setup.
 
 ## Installation
 
@@ -29,8 +47,20 @@ vendor/bin/contao-console contao:migrate
 
 The database update can alternatively be run through Contao Manager. The
 package provides its bundle registration, services, DCA, routes, translations,
-Twig templates and public assets itself; no code has to be copied into the host
-project.
+Twig templates and Encore entries itself; no code has to be copied into the
+host project.
+
+After installing, regenerate the Encore entries and build them:
+
+```bash
+vendor/bin/contao-console huh:encore:prepare
+yarn install
+yarn encore dev
+```
+
+The `huh_qna` entry is activated by the bundle's controllers for the pages that
+need it and does not have to be switched on in the back end. The Turbo entry
+does — see Requirements above.
 
 Optional technical limits can be set in the host configuration:
 

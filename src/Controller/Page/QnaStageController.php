@@ -17,6 +17,8 @@ use Contao\FrontendIndex;
 use Contao\LayoutModel;
 use Contao\PageModel;
 use Contao\PageRegular;
+use HeimrichHannot\EncoreContracts\PageAssetsTrait;
+use HeimrichHannot\QnaBundle\Asset\EncoreExtension;
 use HeimrichHannot\QnaBundle\Domain\Session;
 use HeimrichHannot\QnaBundle\Enum\QuestionSort;
 use HeimrichHannot\QnaBundle\Gateway\QnaSessionGateway;
@@ -30,6 +32,8 @@ use Twig\Environment;
 #[AsPage(type: 'qna_stage', path: '{alias}', defaults: ['alias' => ''], contentComposition: false)]
 class QnaStageController extends AbstractPageController
 {
+    use PageAssetsTrait;
+
     /** @var array{alias: string, sort: QuestionSort}|null */
     private ?array $legacyArguments = null;
 
@@ -158,6 +162,10 @@ class QnaStageController extends AbstractPageController
      */
     private function getContent(PageModel $pageModel, array $arguments): string
     {
+        // Encore collects entrypoints in the response context, which only exists
+        // once rendering has started - activating them earlier is a silent no-op.
+        $this->addPageEntrypoint(EncoreExtension::ENTRY);
+
         if ('' === $arguments['alias']) {
             return $this->twig->render('@Contao/qna/stage_overview.html.twig', [
                 'sessions' => array_map(

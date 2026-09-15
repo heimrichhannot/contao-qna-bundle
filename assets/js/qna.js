@@ -1,9 +1,20 @@
-let Turbo = window.Turbo
+import "../css/qna.css"
+
+// Turbo must be provided by the project, not by this bundle: whether Turbo Drive
+// is on is a site-wide decision. Activate either "huh_ux_turbo_encore" (with
+// Drive) or "huh_ux_turbo_encore_no_drive" (without) from
+// heimrichhannot/contao-ux-turbo-encore in the layout or page settings. Both are
+// head scripts and expose the instance as window.Turbo; this bundle works with
+// either. Importing @hotwired/turbo here would bundle a second copy and would
+// silently impose one of the two choices on the project.
+const Turbo = window.Turbo
 
 if (!Turbo) {
-    Turbo = await import("./turbo.es2017-esm.js?v=b9d35d123a07")
-
-    Turbo.session.drive = false
+    // Without Turbo the frames below never load. Say so instead of failing quietly.
+    console.error(
+        "[qna] window.Turbo is missing. Activate the encore entry "
+        + '"huh_ux_turbo_encore" or "huh_ux_turbo_encore_no_drive" for this page.',
+    )
 }
 
 const BACKOFF_FACTOR = 2
@@ -126,7 +137,7 @@ document.addEventListener("turbo:before-frame-render", (event) => {
     if (
         frame instanceof Element
         && frame.matches('turbo-frame[data-qna-poll][refresh="morph"]')
-        && typeof Turbo.morphTurboFrameElements === "function"
+        && typeof Turbo?.morphTurboFrameElements === "function"
     ) {
         event.detail.render = Turbo.morphTurboFrameElements
     }
