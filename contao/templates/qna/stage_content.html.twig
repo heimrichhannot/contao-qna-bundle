@@ -35,6 +35,14 @@
                 {{ 'qna.stage.stop'|trans({}, 'contao_default') }}
             </button>
         </form>
+    {% elseif show_restart_button %}
+        <form class="qna-stage__action" action="{{ restart_url }}" method="post"
+              data-turbo-confirm="{{ 'qna.stage.restart_confirm'|trans({}, 'contao_default') }}">
+            <input type="hidden" name="REQUEST_TOKEN" value="{{ request_token }}">
+            <button id="qna-session-{{ session.id }}-restart" class="qna-button" type="submit">
+                {{ 'qna.stage.restart'|trans({}, 'contao_default') }}
+            </button>
+        </form>
     {% endif %}
 
     {% if show_questions %}

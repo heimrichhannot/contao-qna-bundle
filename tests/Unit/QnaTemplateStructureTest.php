@@ -13,6 +13,31 @@ use Twig\Environment;
 
 final class QnaTemplateStructureTest extends TestCase
 {
+    public function testRestartFormIsExclusiveAndRequiresConfirmation(): void
+    {
+        $questions = $this->createStub(\HeimrichHannot\QnaBundle\Gateway\QnaQuestionGateway::class);
+        $urls = $this->createStub(\Symfony\Component\Routing\Generator\UrlGeneratorInterface::class);
+        $urls->method('generate')->willReturnCallback(static fn (string $route): string => '/'.$route);
+        $factory = new \HeimrichHannot\QnaBundle\View\StageViewFactory($this->twig(), $questions, $urls);
+        foreach (SessionState::cases() as $state) {
+            foreach ([true, false] as $control) {
+                $view = $factory->create(new Session(7, 'Session', 'session', true, $state, null, null), \HeimrichHannot\QnaBundle\Enum\QuestionSort::VOTES, $control);
+                $dom = $this->dom($factory->renderFrame($view, $control ? 'token' : null, 2500));
+                self::assertSame($control ? 1 : 0, $dom->getElementsByTagName('form')->length);
+                $restart = $dom->getElementById('qna-session-7-restart');
+                if ($control && SessionState::CLOSED === $state) {
+                    self::assertInstanceOf(\DOMElement::class, $restart);
+                    self::assertNull($dom->getElementById('qna-session-7-start'));
+                    $form = $dom->getElementsByTagName('form')->item(0);
+                    self::assertSame('/contao_qna_session_restart', $form?->getAttribute('action'));
+                    self::assertSame('The current questions will be hidden. Start a new round?', $form->getAttribute('data-turbo-confirm'));
+                } else {
+                    self::assertNull($restart);
+                }
+            }
+        }
+    }
+
     public function testInitialReaderMarkupIsNeutralAndPreparedAsSeparateLazyFrames(): void
     {
         $context = $this->readerContext();
