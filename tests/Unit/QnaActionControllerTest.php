@@ -381,6 +381,46 @@ final class QnaActionControllerTest extends TestCase
         self::assertSame('text/html; charset=UTF-8', $response->headers->get('Content-Type'));
     }
 
+    public function testArchivedVoteReturnsPrivate422WithTranslatedError(): void
+    {
+        $session = new QnaSession(7, 'Mobility', 'mobility', true, SessionState::OPEN, 150, null, 2);
+        $gateway = $this->createStub(QnaSessionGateway::class);
+        $gateway->method('find')->willReturn($session);
+        $gateway->method('findPublished')->willReturn($session);
+        $questionGateway = $this->createStub(QnaQuestionGateway::class);
+        $questionGateway->method('find')->willReturn(new QnaQuestion(23, 7, 4, 'Question', 110));
+        $questionGateway->method('findForSession')->willReturn([]);
+        $voteGateway = $this->createMock(QnaVoteGateway::class);
+        $voteGateway->expects(self::never())->method('create');
+        $memberSecurity = $this->createMemberSecurity(42);
+        $voteService = new VoteService(
+            new LockedContextLoader($gateway, $questionGateway),
+            $voteGateway,
+            new FrontendMemberProvider($memberSecurity),
+            new MockClock('@150'),
+            $this->transactionConnection(),
+        );
+        $twig = \HeimrichHannot\QnaBundle\Tests\Fixtures\TemplateEnvironment::create();
+        $controller = $this->createController(
+            $this->uninitializedQuestionService(),
+            $voteService,
+            new SessionService($gateway, new MockClock('@150'), $this->transactionConnection()),
+            $gateway,
+            $this->createResponseFactory($gateway, $questionGateway, $memberSecurity, $this->createStub(Security::class), $twig),
+            $this->createStub(Security::class),
+            $this->createUrlGenerator(),
+            (new \ReflectionClass(\HeimrichHannot\QnaBundle\Service\QuestionAnswerService::class))->newInstanceWithoutConstructor(),
+        );
+
+        $response = $controller->vote(7, 23);
+
+        self::assertSame(422, $response->getStatusCode());
+        self::assertSame('no-store, private', $response->headers->get('Cache-Control'));
+        self::assertStringContainsString('This question belongs to an earlier round and can no longer be changed.', (string) $response->getContent());
+        self::assertStringContainsString('qna-session-7-questions', (string) $response->getContent());
+        self::assertSame('text/html; charset=UTF-8', $response->headers->get('Content-Type'));
+    }
+
     public function testMissingAuthenticationKeepsUnauthorizedStatus(): void
     {
         $session = new QnaSession(7, 'Mobility', 'mobility', true, SessionState::OPEN, 100, null);
@@ -441,6 +481,7 @@ final class QnaActionControllerTest extends TestCase
         $this->expectException(AccessDeniedHttpException::class);
         $controller->start(7, Request::create('/start', 'POST'));
     }
+
     public function testRestartRequiresControlBeforeMutation(): void
     {
         $session = new QnaSession(7, 'Mobility', 'mobility', true, SessionState::WAITING, null, null);
