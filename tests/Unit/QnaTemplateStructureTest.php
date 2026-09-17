@@ -52,6 +52,23 @@ final class QnaTemplateStructureTest extends TestCase
         self::assertSame($html, $this->twig()->render('@Contao/content_element/qna_session_reader.html.twig', $context));
     }
 
+    public function testEditorHintShowsTheSelectedTitleOrUrlHint(): void
+    {
+        foreach ([null, 'Draft <script>alert(1)</script>'] as $title) {
+            $html = $this->twig()->render('@Contao/content_element/qna_session_reader.html.twig', [
+                'as_editor_view' => true,
+                'editor_session_title' => $title,
+            ]);
+            $dom = $this->dom('<meta charset="UTF-8">'.$html);
+            self::assertSame(0, $dom->getElementsByTagName('turbo-frame')->length);
+            self::assertSame(0, $dom->getElementsByTagName('script')->length);
+            self::assertStringContainsString(
+                null === $title ? 'The front end loads the question session from the URL item parameter.' : 'Displays the question session “'.$title.'”.',
+                $dom->textContent,
+            );
+        }
+    }
+
     public function testOnlyTheOutermostFrameCarriesSourceAndPolling(): void
     {
         // Rendered, not grepped: after the switch to attrs() a source check against
@@ -161,7 +178,7 @@ final class QnaTemplateStructureTest extends TestCase
         foreach (['de', 'en'] as $locale) {
             $translations = require \dirname(__DIR__, 2).'/translations/contao_default.'.$locale.'.php';
             self::assertIsArray($translations);
-            foreach (['qna.session_list.open', 'qna.question.vote_count', 'qna.vote.label', 'qna.vote.selected_label'] as $key) {
+            foreach (['qna.reader.editor_hint_session', 'qna.session_list.open', 'qna.question.vote_count', 'qna.vote.label', 'qna.vote.selected_label'] as $key) {
                 self::assertIsString($translations[$key] ?? null);
                 self::assertStringContainsString('%s', $translations[$key]);
                 self::assertDoesNotMatchRegularExpression('/%[a-z_]+%/i', $translations[$key]);

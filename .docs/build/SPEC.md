@@ -332,8 +332,15 @@ String-Konkatenation.
 
 ### 5.2 `qna_session_reader` — `QnaSessionReaderController`
 
-Keine Session-Auswahl im Backend. Die Session wird ausschließlich über den
-Item-Parameter der URL aufgelöst:
+Optionale Session-Auswahl im Backend über `tl_content.qnaSession` (ergänzt
+durch FEATURES.md §1). Bei einer positiven ID wird ausschließlich die
+veröffentlichte konfigurierte Session geladen; der Item-Parameter bleibt
+ungelesen und unverbraucht. Ist die konfigurierte Session unveröffentlicht
+oder gelöscht, bleibt das Element leer (HTTP 200), mit Cache-Tag
+`contao.db.tl_qna_session.<id>` für spätere Veröffentlichung (D13). Die
+Backend-Vorschau zeigt auch den Titel einer unveröffentlichten Auswahl.
+
+Ohne Auswahl wird die Session über den Item-Parameter der URL aufgelöst:
 
 ```
 /fragerunden/mobilitaet-der-zukunft  →  tl_qna_session.alias
@@ -345,8 +352,10 @@ lesen **und als verwendet zu markieren** — inklusive des Zusammenspiels mit
 führen. Der Parameter darf nur dort als verwendet markiert werden, wo der
 Reader tatsächlich eingesetzt ist.
 
-404 (`PageNotFoundException`) bei: fehlendem Item-Parameter, unbekanntem
-Alias, unveröffentlichter Session. Keine stille leere Ausgabe.
+Nur im Item-Pfad: 404 (`PageNotFoundException`) bei fehlendem Item-Parameter,
+unbekanntem Alias oder unveröffentlichter Session. Keine stille leere Ausgabe
+in diesem Pfad. Ein fester Reader eignet sich nicht als Ziel der Session-Liste:
+deren Alias-Item bleibt unverbraucht und führt deshalb zu 404.
 
 Klarzustellen und zu testen: Verhalten, wenn Listen- und Reader-Element auf
 derselben Seite liegen.

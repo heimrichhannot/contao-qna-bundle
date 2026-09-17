@@ -406,3 +406,46 @@ packagist.org noch im Repository existiert eine Version), obwohl das dortige
 CHANGELOG ein `[0.1.0]` ausweist. Bis zum Tag steht in der `composer.json`
 `dev-main`. Danach auf `^0.1` umstellen und `composer update` ausführen.
 
+
+## D13: Optional fest konfigurierte Reader-Session (17.09.2026)
+
+`tl_content.qnaSession` bietet eine optionale Session-Auswahl einschließlich
+unveröffentlichter Sessions. Ohne Auswahl bleibt D5 unverändert: Der Reader
+liest und verbraucht `auto_item` und liefert bei fehlendem, unbekanntem oder
+unveröffentlichtem Alias 404. Bei positiver ID wird ausschließlich
+`findPublished()` verwendet, ohne den Input-Adapter anzufordern.
+
+Ist die feste Session unveröffentlicht oder gelöscht, antwortet das Element
+mit einer leeren Response (200). Eine redaktionelle Programmseite existiert
+unabhängig von der eingebetteten Session und darf dadurch nicht unerreichbar
+werden. Der Cache-Tag `contao.db.tl_qna_session.<id>` bleibt auch bei leerer
+Ausgabe erhalten. Alternativen: 404 für die gesamte Seite oder Fallback auf
+das URL-Item; beides würde die feste redaktionelle Zuordnung missachten.
+`resolveSession(ContentModel)` liefert deshalb `?Session` statt des im Prompt
+genannten nicht-nullbaren Rückgabetyps. Im Backend liefert `find()` auch den
+Titel einer unveröffentlichten Session für den übersetzten Editor-Hinweis.
+
+Die Liste bleibt unverändert. Ihre Links enthalten einen Alias als Item;
+ein fester Reader verbraucht ihn nicht, sodass Contao korrekt 404 liefert.
+Für Listenziele bleibt das Auswahlfeld deshalb leer.
+
+Core-Belege unter `vendor/contao/core-bundle/`:
+
+* `contao/dca/tl_content.php`, Feld `form`: Select, foreignKey,
+  includeBlankOption, chosen und lazy hasOne-Relation. In den genannten
+  `tl_content.php`/`tl_module.php` existiert kein CONCAT-Vorbild; die Auswahl
+  verwendet deshalb `tl_qna_session.title`.
+* `contao/library/Contao/Model.php::row()`: Zugriff auf rohe Felddaten;
+  defensive int/string-Prüfung wie beim bestehenden Listen-Controller.
+* `contao/library/Contao/Input.php::get()`: Der dritte Parameter ist
+  standardmäßig false; der gelesene Route-Parameter wird verbraucht.
+* `src/Controller/AbstractController.php::tagResponse()` und
+  `src/Cache/CacheTagManager.php::tagWith()`: Tagging auch ohne Session-Objekt.
+* `src/Twig/FragmentTemplate.php::set()`/`getResponse()` und
+  `src/Controller/AbstractFragmentController.php::isBackendScope()`:
+  Editor-Kontext und Scope-Trennung.
+
+Abweichend von FEATURES §0.7 erfordert auch Feature 1 eine Schemaergänzung:
+Das neue Feld in `tl_content` wird durch Contaos reguläre Schema-Migration
+angelegt (Doctrine integer, unsigned, Default 0), wie im Feature-1-Prompt
+explizit verlangt. Keine eigene Migrationsklasse ist nötig.

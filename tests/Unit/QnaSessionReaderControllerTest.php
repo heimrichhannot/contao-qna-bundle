@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace HeimrichHannot\QnaBundle\Tests\Unit;
 
+use Contao\ContentModel;
+use Contao\CoreBundle\Cache\CacheTagManager;
 use Contao\CoreBundle\Exception\PageNotFoundException;
 use Contao\CoreBundle\Framework\Adapter;
 use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\CoreBundle\Routing\ContentUrlGenerator;
+use Contao\CoreBundle\Routing\ScopeMatcher;
+use Contao\CoreBundle\Twig\FragmentTemplate;
 use Contao\Input;
 use Contao\PageModel;
 use Doctrine\DBAL\Connection;
@@ -20,6 +24,9 @@ use HeimrichHannot\QnaBundle\View\QnaSessionListViewFactory;
 use HeimrichHannot\QnaBundle\View\ReaderViewFactory;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\DependencyInjection\Container;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 final class QnaSessionReaderControllerTest extends TestCase
@@ -41,7 +48,7 @@ final class QnaSessionReaderControllerTest extends TestCase
         [$controller] = $this->createController($alias, $gateway);
 
         $this->expectException(PageNotFoundException::class);
-        $controller->resolveForTest();
+        $controller->resolveForTest($this->contentModel(0));
     }
 
     public function testUnknownAliasThrowsPageNotFound(): void
@@ -54,7 +61,7 @@ final class QnaSessionReaderControllerTest extends TestCase
         [$controller] = $this->createController('unknown', $gateway);
 
         $this->expectException(PageNotFoundException::class);
-        $controller->resolveForTest();
+        $controller->resolveForTest($this->contentModel(0));
     }
 
     public function testUnpublishedAliasThrowsPageNotFound(): void
@@ -72,7 +79,7 @@ final class QnaSessionReaderControllerTest extends TestCase
         [$controller] = $this->createController('draft', new QnaSessionGateway($connection));
 
         $this->expectException(PageNotFoundException::class);
-        $controller->resolveForTest();
+        $controller->resolveForTest($this->contentModel(0));
     }
 
     public function testPublishedAliasIsResolvedAndTheItemIsMarkedAsUsed(): void
@@ -85,7 +92,7 @@ final class QnaSessionReaderControllerTest extends TestCase
             ->willReturn($session);
         [$controller, $input] = $this->createController('mobility', $gateway);
 
-        self::assertSame($session, $controller->resolveForTest());
+        self::assertSame($session, $controller->resolveForTest($this->contentModel(0)));
         self::assertSame('auto_item', $input->requestedKey);
         self::assertFalse($input->keptUnused);
     }
@@ -110,9 +117,110 @@ final class QnaSessionReaderControllerTest extends TestCase
         $items = (new QnaSessionListViewFactory($urlGenerator))->create([$session], $page);
 
         self::assertSame('/questions/mobility', $items[0]->url);
-        self::assertSame($session, $controller->resolveForTest());
+        self::assertSame($session, $controller->resolveForTest($this->contentModel(0)));
         self::assertSame('auto_item', $input->requestedKey);
         self::assertFalse($input->keptUnused);
+    }
+
+    /** @return iterable<string, array{int|string, string|null}> */
+    public static function configuredSessionProvider(): iterable
+    {
+        yield 'integer without item' => [7, null];
+        yield 'database string with unrelated item' => ['7', 'another-session'];
+    }
+
+    #[DataProvider('configuredSessionProvider')]
+    public function testConfiguredSessionNeverAccessesInput(int|string $configured, ?string $alias): void
+    {
+        $session = new Session(7, 'Mobility', 'mobility', true, SessionState::OPEN, 100, null);
+        $gateway = $this->createMock(QnaSessionGateway::class);
+        $gateway->expects(self::once())->method('findPublished')->with(7)->willReturn($session);
+        $gateway->expects(self::never())->method('findPublishedByAlias');
+        [$controller, $input] = $this->createController($alias, $gateway, true);
+
+        self::assertSame($session, $controller->resolveForTest($this->contentModel($configured)));
+        self::assertNull($input->requestedKey);
+    }
+
+    public function testUnavailableConfiguredSessionReturnsEmptyTaggedResponse(): void
+    {
+        $connection = $this->createMock(Connection::class);
+        $connection->expects(self::once())->method('fetchAssociative')->with(
+            self::callback(static fn (string $sql): bool => str_contains($sql, 'id = :id')
+                && str_contains($sql, 'published = :published')),
+            ['id' => 7, 'published' => '1'],
+            self::anything(),
+        )->willReturn(false);
+        [$controller] = $this->createController('mobility', new QnaSessionGateway($connection), true);
+        $container = new Container();
+        $scope = $this->createStub(ScopeMatcher::class);
+        $scope->method('isBackendRequest')->willReturn(false);
+        $container->set('contao.routing.scope_matcher', $scope);
+        $tags = $this->createMock(CacheTagManager::class);
+        $tags->expects(self::once())->method('tagWith')->with('contao.db.tl_qna_session.7');
+        $container->set('contao.cache.tag_manager', $tags);
+        $controller->setContainer($container);
+        $template = new FragmentTemplate('reader', static function (): Response {
+            self::fail('An unavailable configured session must not render the template.');
+        });
+
+        $response = $controller->responseForTest($template, $this->contentModel(7));
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('', $response->getContent());
+    }
+
+    public function testEditorReceivesUnpublishedConfiguredSessionTitle(): void
+    {
+        $session = new Session(7, 'Draft session', 'draft', false, SessionState::WAITING, null, null);
+        $gateway = $this->createMock(QnaSessionGateway::class);
+        $gateway->expects(self::once())->method('find')->with(7)->willReturn($session);
+        $gateway->expects(self::never())->method('findPublished');
+        [$controller] = $this->createController(null, $gateway, true);
+        $container = new Container();
+        $scope = $this->createStub(ScopeMatcher::class);
+        $scope->method('isBackendRequest')->willReturn(true);
+        $container->set('contao.routing.scope_matcher', $scope);
+        $controller->setContainer($container);
+        $template = new FragmentTemplate('reader', static fn (): Response => new Response('editor'));
+
+        self::assertSame('editor', $controller->responseForTest($template, $this->contentModel(7))->getContent());
+        self::assertSame('Draft session', $template->get('editor_session_title'));
+        self::assertNull($template->getData()['view']);
+    }
+
+    /** @return iterable<string, array{array<string, mixed>}> */
+    public static function unconfiguredSessionProvider(): iterable
+    {
+        yield 'missing field' => [[]];
+        foreach (['', '0', 0, null, false, [], 1.5, -1] as $index => $value) {
+            yield 'empty or invalid '.$index => [['qnaSession' => $value]];
+        }
+    }
+
+    /** @param array<string, mixed> $row */
+    #[DataProvider('unconfiguredSessionProvider')]
+    public function testEmptyOrInvalidConfigurationUsesAlias(array $row): void
+    {
+        $session = new Session(7, 'Mobility', 'mobility', true, SessionState::OPEN, 100, null);
+        $gateway = $this->createMock(QnaSessionGateway::class);
+        $gateway->expects(self::never())->method('findPublished');
+        $gateway->expects(self::once())->method('findPublishedByAlias')->with('mobility')->willReturn($session);
+        [$controller, $input] = $this->createController('mobility', $gateway);
+        $model = $this->createStub(ContentModel::class);
+        $model->method('row')->willReturn($row);
+
+        self::assertSame($session, $controller->resolveForTest($model));
+        self::assertSame('auto_item', $input->requestedKey);
+        self::assertFalse($input->keptUnused);
+    }
+
+    private function contentModel(int|string $configured): ContentModel
+    {
+        $model = $this->createStub(ContentModel::class);
+        $model->method('row')->willReturn(['qnaSession' => $configured]);
+
+        return $model;
     }
 
     /**
@@ -121,11 +229,12 @@ final class QnaSessionReaderControllerTest extends TestCase
     private function createController(
         ?string $alias,
         QnaSessionGateway $gateway,
+        bool $configured = false,
     ): array {
         $input = new ReaderInputAdapter($alias);
         $framework = $this->createMock(ContaoFramework::class);
-        $framework->expects(self::once())->method('initialize');
-        $framework->expects(self::once())
+        $framework->expects($configured ? self::never() : self::once())->method('initialize');
+        $framework->expects($configured ? self::never() : self::once())
             ->method('getAdapter')
             ->with(Input::class)
             ->willReturn($input);
@@ -145,9 +254,14 @@ final class QnaSessionReaderControllerTest extends TestCase
 
 final class TestableQnaSessionReaderController extends QnaSessionReaderController
 {
-    public function resolveForTest(): Session
+    public function resolveForTest(ContentModel $model): ?Session
     {
-        return $this->resolveSession();
+        return $this->resolveSession($model);
+    }
+
+    public function responseForTest(FragmentTemplate $template, ContentModel $model): Response
+    {
+        return $this->getResponse($template, $model, new Request());
     }
 }
 
