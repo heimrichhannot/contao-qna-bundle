@@ -72,6 +72,42 @@ final class QnaActionControllerTest extends TestCase
         self::assertStringContainsString('no-store', $response->headers->get('Cache-Control', ''));
     }
 
+    public function testRestartChecksVoterUsesSessionServiceAndReturnsPrivatePrgResponse(): void
+    {
+        $session = new QnaSession(7, 'Mobility', 'mobility', true, SessionState::CLOSED, null, null);
+        $gateway = $this->createMock(QnaSessionGateway::class);
+        $gateway->expects(self::once())->method('findPublished')->with(7)->willReturn($session);
+        $gateway->expects(self::once())->method('find')->with(7)->willReturn($session);
+        $gateway->expects(self::once())->method('markReopened')->with(7, 100)->willReturn(true);
+        $security = $this->createMock(Security::class);
+        $security->expects(self::once())
+            ->method('isGranted')
+            ->with(QnaSessionControlVoter::ATTRIBUTE, $session)
+            ->willReturn(true);
+        $urlGenerator = $this->createMock(UrlGeneratorInterface::class);
+        $urlGenerator->expects(self::once())
+            ->method('generate')
+            ->with('contao_qna_stage_questions', ['sessionId' => 7, 'sort' => 'time'])
+            ->willReturn('/_qna/stage/7/questions?sort=time');
+        $controller = $this->createController(
+            $this->uninitializedQuestionService(),
+            $this->uninitializedVoteService(),
+            new SessionService($gateway, new MockClock('@100'), $this->transactionConnection()),
+            $gateway,
+            $this->uninitializedResponseFactory(),
+            $security,
+            $urlGenerator,
+            (new \ReflectionClass(\HeimrichHannot\QnaBundle\Service\QuestionAnswerService::class))->newInstanceWithoutConstructor(),
+        );
+
+        $response = $controller->restart(7, Request::create('/restart?sort=time', 'POST'));
+
+        self::assertSame(303, $response->getStatusCode());
+        self::assertSame('/_qna/stage/7/questions?sort=time', $response->headers->get('Location'));
+        self::assertStringContainsString('private', $response->headers->get('Cache-Control', ''));
+        self::assertStringContainsString('no-store', $response->headers->get('Cache-Control', ''));
+    }
+
     public function testClosedSessionCannotBeStartedThroughTheHttpAction(): void
     {
         $session = new QnaSession(7, 'Mobility', 'mobility', true, SessionState::CLOSED, 50, 100);
@@ -80,7 +116,7 @@ final class QnaActionControllerTest extends TestCase
         $gateway->expects(self::once())->method('find')->with(7)->willReturn($session);
         $gateway->expects(self::never())->method('markOpen');
         $questionGateway = $this->createMock(QnaQuestionGateway::class);
-        $questionGateway->expects(self::once())->method('findForStage')->with(7, QuestionSort::VOTES)->willReturn([]);
+        $questionGateway->expects(self::once())->method('findForStage')->with(7, 1, QuestionSort::VOTES)->willReturn([]);
         $security = $this->createMock(Security::class);
         $security->expects(self::exactly(2))->method('isGranted')->willReturn(true);
         $twig = $this->createMock(Environment::class);
@@ -114,6 +150,54 @@ final class QnaActionControllerTest extends TestCase
         );
 
         $response = $controller->start(7, Request::create('/start?sort=invalid', 'POST'));
+
+        self::assertSame(422, $response->getStatusCode());
+        self::assertStringContainsString('private', $response->headers->get('Cache-Control', ''));
+        self::assertStringContainsString('no-store', $response->headers->get('Cache-Control', ''));
+    }
+
+    public function testOpenSessionCannotBeRestartedThroughTheHttpAction(): void
+    {
+        $session = new QnaSession(7, 'Mobility', 'mobility', true, SessionState::OPEN, 50, 100);
+        $gateway = $this->createMock(QnaSessionGateway::class);
+        $gateway->expects(self::exactly(2))->method('findPublished')->with(7)->willReturn($session);
+        $gateway->expects(self::once())->method('find')->with(7)->willReturn($session);
+        $gateway->expects(self::never())->method('markReopened');
+        $questionGateway = $this->createMock(QnaQuestionGateway::class);
+        $questionGateway->expects(self::once())->method('findForStage')->with(7, 1, QuestionSort::VOTES)->willReturn([]);
+        $security = $this->createMock(Security::class);
+        $security->expects(self::exactly(2))->method('isGranted')->willReturn(true);
+        $twig = $this->createMock(Environment::class);
+        $twig->expects(self::once())
+            ->method('render')
+            ->with(
+                '@Contao/qna/stage_questions.html.twig',
+                self::callback(static fn (array $context): bool => 'qna.error.invalid_transition' === $context['error_translation_key']),
+            )
+            ->willReturn('<turbo-frame id="qna-session-7-stage"></turbo-frame>');
+        $urlGenerator = $this->createStub(UrlGeneratorInterface::class);
+        $urlGenerator->method('generate')->willReturn('/frame');
+        $memberSecurity = $this->createStub(Security::class);
+        $responseFactory = $this->createResponseFactory(
+            $gateway,
+            $questionGateway,
+            $memberSecurity,
+            $security,
+            $twig,
+            $urlGenerator,
+        );
+        $controller = $this->createController(
+            $this->uninitializedQuestionService(),
+            $this->uninitializedVoteService(),
+            new SessionService($gateway, new MockClock('@150'), $this->transactionConnection()),
+            $gateway,
+            $responseFactory,
+            $security,
+            $urlGenerator,
+            (new \ReflectionClass(\HeimrichHannot\QnaBundle\Service\QuestionAnswerService::class))->newInstanceWithoutConstructor(),
+        );
+
+        $response = $controller->restart(7, Request::create('/restart?sort=invalid', 'POST'));
 
         self::assertSame(422, $response->getStatusCode());
         self::assertStringContainsString('private', $response->headers->get('Cache-Control', ''));
@@ -357,6 +441,32 @@ final class QnaActionControllerTest extends TestCase
         $this->expectException(AccessDeniedHttpException::class);
         $controller->start(7, Request::create('/start', 'POST'));
     }
+    public function testRestartRequiresControlBeforeMutation(): void
+    {
+        $session = new QnaSession(7, 'Mobility', 'mobility', true, SessionState::WAITING, null, null);
+        $gateway = $this->createMock(QnaSessionGateway::class);
+        $gateway->expects(self::once())->method('findPublished')->with(7)->willReturn($session);
+        $gateway->expects(self::never())->method('find');
+        $gateway->expects(self::never())->method('markReopened');
+        $security = $this->createMock(Security::class);
+        $security->expects(self::once())
+            ->method('isGranted')
+            ->with(QnaSessionControlVoter::ATTRIBUTE, $session)
+            ->willReturn(false);
+        $controller = $this->createController(
+            $this->uninitializedQuestionService(),
+            $this->uninitializedVoteService(),
+            new SessionService($gateway, $this->createStub(ClockInterface::class), $this->transactionConnection()),
+            $gateway,
+            $this->uninitializedResponseFactory(),
+            $security,
+            $this->createStub(UrlGeneratorInterface::class),
+            (new \ReflectionClass(\HeimrichHannot\QnaBundle\Service\QuestionAnswerService::class))->newInstanceWithoutConstructor(),
+        );
+
+        $this->expectException(AccessDeniedHttpException::class);
+        $controller->restart(7, Request::create('/start', 'POST'));
+    }
 
     public function testAnsweredAndUnansweredActionsPreserveSortAndRedirectPrivately(): void
     {
@@ -395,7 +505,7 @@ final class QnaActionControllerTest extends TestCase
         $questions = $this->createMock(QnaQuestionGateway::class);
         $questions->method('find')->willReturn(new QnaQuestion(23, 7, 1, 'Question', 100));
         $questions->expects(self::never())->method('setAnswered');
-        $questions->expects(self::once())->method('findForStage')->with(7, QuestionSort::TIME)->willReturn([]);
+        $questions->expects(self::once())->method('findForStage')->with(7, 1, QuestionSort::TIME)->willReturn([]);
         $security = $this->createStub(Security::class);
         $security->method('isGranted')->willReturn(true);
         $controller = $this->createController(

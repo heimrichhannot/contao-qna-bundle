@@ -134,6 +134,37 @@ final readonly class QnaActionController
     }
 
     #[Route(
+        '/_qna/session/{sessionId}/restart',
+        name: 'contao_qna_session_restart',
+        requirements: ['sessionId' => '\\d+'],
+        defaults: ['_token_check' => true],
+        methods: ['POST'],
+    )]
+    public function restart(int $sessionId, Request $request): Response
+    {
+        $session = $this->requireControl($sessionId);
+        $sort = QuestionSort::fromRequestValue($request->query->getString('sort'));
+
+        try {
+            $this->sessionService->restart($session->id);
+        } catch (QnaDomainException $exception) {
+            $this->throwIfNotFound($exception);
+
+            return $this->renderStage(
+                $session->id,
+                $sort,
+                $exception->translationKey(),
+                $exception->statusCode(),
+            );
+        }
+
+        return $this->redirectToRoute('contao_qna_stage_questions', [
+            'sessionId' => $session->id,
+            'sort' => $sort->value,
+        ]);
+    }
+
+    #[Route(
         '/_qna/session/{sessionId}/stop',
         name: 'contao_qna_session_stop',
         requirements: ['sessionId' => '\\d+'],
