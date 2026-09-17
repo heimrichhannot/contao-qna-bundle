@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HeimrichHannot\QnaBundle\Gateway;
 
+use HeimrichHannot\QnaBundle\Exception\QuestionArchivedException;
 use HeimrichHannot\QnaBundle\Exception\QuestionNotFoundException;
 use HeimrichHannot\QnaBundle\Exception\SessionNotFoundException;
 
@@ -12,6 +13,7 @@ use HeimrichHannot\QnaBundle\Exception\SessionNotFoundException;
  * The session is locked before the question to give all such paths the same lock
  * order and prevent deadlocks. Question existence and ownership are validated
  * before session existence so a missing or unrelated question takes precedence.
+ * Publication and open state are checked before the question round.
  */
 final readonly class LockedContextLoader
 {
@@ -35,6 +37,10 @@ final readonly class LockedContextLoader
         }
 
         ($session ?? throw new SessionNotFoundException($sessionId))->assertOpen();
+
+        if ($question->round !== $session->round) {
+            throw new QuestionArchivedException();
+        }
 
         return new LockedQuestionContext($session, $question);
     }

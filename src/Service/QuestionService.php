@@ -59,7 +59,7 @@ final readonly class QuestionService
             $questionId = $this->questionGateway->create($session->id, $memberId, $question, $timestamp, $session->round);
             $this->voteGateway->create($questionId, $memberId, $timestamp);
 
-            return new Question($questionId, $session->id, $memberId, $question, $timestamp);
+            return new Question($questionId, $session->id, $memberId, $question, $timestamp, round: $session->round);
         });
     }
 }

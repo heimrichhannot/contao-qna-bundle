@@ -49,6 +49,29 @@ final class QuestionServiceTest extends TestCase
         self::assertSame('How does this work?', $question->question);
     }
 
+    public function testSubmissionUsesRoundFromLockedSession(): void
+    {
+        $sessionGateway = $this->createMock(QnaSessionGateway::class);
+        $sessionGateway->expects(self::once())->method('find')->with(12, true)->willReturn(new Session(12, 'Session', 'session', true, SessionState::OPEN, 100, null, 3));
+
+        $questionGateway = $this->createMock(QnaQuestionGateway::class);
+        $questionGateway->expects(self::once())->method('findLatestCreatedAt')->with(12, 42, true)->willReturn(null);
+        $questionGateway->expects(self::once())
+            ->method('create')
+            ->with(12, 42, 'How does this work?', 1_700_000_000, 3)
+            ->willReturn(99);
+
+        $votes = $this->createMock(QnaVoteGateway::class);
+        $votes->expects(self::once())->method('create')->with(99, 42, 1_700_000_000);
+
+        $question = $this->service($sessionGateway, $questionGateway, voteGateway: $votes)->create(12, '  How does this work?  ');
+
+        self::assertSame(3, $question->round);
+        self::assertSame(99, $question->id);
+        self::assertSame(42, $question->memberId);
+        self::assertSame('How does this work?', $question->question);
+    }
+
     /**
      * @return iterable<string, array{SessionState}>
      */
