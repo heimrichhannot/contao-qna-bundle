@@ -88,8 +88,8 @@ base interval. Client-side retry backoff is capped at
    Add the **Q&A session list** content element and select the reader page in
    its **Reader page** field.
 3. Create that regular reader page and add the **Q&A session reader** content
-   element. The reader resolves the session from the URL item; it needs no
-   session selection in its content element.
+   element. Leave **Question session** empty to resolve the session from the URL
+   item, or select a fixed session when embedding it in an existing page.
 4. Create a page with page type **Q&A stage** (`qna_stage`), for example
    `buehne`, and assign a page layout. The controller supports a modern Twig
    slot layout and the classic Contao layout fallback. The page type does not
@@ -110,7 +110,22 @@ For a project without a URL suffix, the resulting URLs are:
 
 Contao appends the root page's configured URL suffix where applicable, for
 example `.html`. The list displays published sessions only. A missing,
-unknown or unpublished reader/stage alias returns 404.
+unknown or unpublished reader/stage alias returns 404 when resolved from the URL.
+
+### Embedding a session in an existing page
+
+Add a **Q&A session reader** to a regular page and select its **Question
+session**. Run the Contao database update after upgrading to add
+`tl_content.qnaSession`. The page needs no item parameter. Unpublished sessions
+are selectable in the back end and their titles appear in the editor preview.
+If the selected session is unpublished or deleted, the element outputs nothing
+and the surrounding page remains available (HTTP 200). Its session cache tag is
+retained so later publication can invalidate the page cache.
+
+Use a separate reader page with an empty **Question session** field as the
+session list's target. List links include the session alias as an item parameter;
+a fixed-session reader leaves that parameter unused, so Contao returns 404.
+There is no fallback from an unavailable fixed session to the URL item.
 
 ## Styling
 
@@ -183,7 +198,7 @@ The bundle contains two content elements and one page controller:
 - `qna_session_list` renders published sessions and links to the selected
   reader page through Contao's `ContentUrlGenerator`.
 - `qna_session_reader` renders cache-neutral lazy Turbo Frame shells for the
-  URL's session alias: one stable controls frame and one polling questions
+  selected session or the URL's session alias: one stable controls frame and one polling questions
   frame.
 - page type `qna_stage` renders either the published-session overview or one
   session's operator view. Modern layouts use Contao's Twig-slot

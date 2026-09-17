@@ -38,15 +38,22 @@ class QnaSessionReaderController extends AbstractContentElementController
     protected function getResponse(FragmentTemplate $template, ContentModel $model, Request $request): Response
     {
         if ($this->isBackendScope($request)) {
+            $configured = $this->configuredSessionId($model);
             $template->set('view', null);
+            $template->set('editor_session_title', $configured > 0 ? $this->sessionGateway->find($configured)?->title : null);
 
             return $template->getResponse();
         }
 
         $this->addPageEntrypoint(EncoreExtension::ENTRY);
 
-        $session = $this->resolveSession();
-        $this->tagResponse('contao.db.tl_qna_session.'.$session->id);
+        $session = $this->resolveSession($model);
+        $this->tagResponse('contao.db.tl_qna_session.'.($session->id ?? $this->configuredSessionId($model)));
+
+        if (null === $session) {
+            // D13: an unavailable embedded session must not turn its editorial page into a 404.
+            return new Response('');
+        }
 
         $template->set('view', $this->viewFactory->createInitial($session));
         $template->set('controls_frame_src', $this->urlGenerator->generate('contao_qna_reader_controls', [
@@ -61,8 +68,14 @@ class QnaSessionReaderController extends AbstractContentElementController
         return $template->getResponse();
     }
 
-    protected function resolveSession(): Session
+    protected function resolveSession(ContentModel $model): ?Session
     {
+        $configured = $this->configuredSessionId($model);
+
+        if ($configured > 0) {
+            return $this->sessionGateway->findPublished($configured);
+        }
+
         $this->framework->initialize();
 
         // Input::get() deliberately uses its default third argument (false). This
@@ -80,5 +93,12 @@ class QnaSessionReaderController extends AbstractContentElementController
         }
 
         return $session;
+    }
+
+    private function configuredSessionId(ContentModel $model): int
+    {
+        $configured = $model->row()['qnaSession'] ?? 0;
+
+        return \is_int($configured) || \is_string($configured) ? (int) $configured : 0;
     }
 }

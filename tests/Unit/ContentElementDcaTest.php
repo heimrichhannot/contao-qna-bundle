@@ -8,7 +8,7 @@ use PHPUnit\Framework\TestCase;
 
 final class ContentElementDcaTest extends TestCase
 {
-    public function testListOnlyConfiguresTheReaderPageAndReaderHasNoSessionSelection(): void
+    public function testReaderOffersAnOptionalSessionAndNoReaderPage(): void
     {
         if (!isset($GLOBALS['TL_DCA']) || !\is_array($GLOBALS['TL_DCA'])) {
             $GLOBALS['TL_DCA'] = [];
@@ -31,10 +31,17 @@ final class ContentElementDcaTest extends TestCase
             $contentDca['palettes']['qna_session_list'],
         );
         self::assertSame(
-            '{type_legend},type',
+            '{type_legend},type;{qna_legend},qnaSession',
             $contentDca['palettes']['qna_session_reader'],
         );
-        self::assertStringNotContainsString('session', $contentDca['palettes']['qna_session_reader']);
+        self::assertIsArray($contentDca['fields']);
+        $field = $contentDca['fields']['qnaSession'];
+        self::assertIsArray($field);
+        self::assertSame(['type' => 'integer', 'unsigned' => true, 'default' => 0], $field['sql']);
+        self::assertSame(['includeBlankOption' => true, 'chosen' => true, 'tl_class' => 'w50'], $field['eval']);
+        self::assertSame('tl_qna_session.title', $field['foreignKey']);
+        self::assertSame('select', $field['inputType']);
+        self::assertSame(['type' => 'hasOne', 'load' => 'lazy'], $field['relation']);
         self::assertStringNotContainsString('jumpTo', $contentDca['palettes']['qna_session_reader']);
     }
 
