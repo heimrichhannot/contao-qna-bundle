@@ -1020,3 +1020,13 @@ Die Bühne gruppiert unbeantwortete vor beantworteten Fragen und erhält die
 gewählte Sortierung je Gruppe. Teilnehmer behalten ihre Vote-Sortierung mit
 Text-Badge und ohne Vote-Button an beantworteten Fragen. Geschlossene Sessions
 zeigen Gruppen und Badges ohne Aktionen. Kein Antworttext oder Antwortzeitpunkt.
+
+## Backend-Hinweis zur Turbo-Konfiguration (Feature 3)
+
+Beim Bearbeiten von Q&A-Inhaltselementen und Bühnenseiten wird die wirksame
+Seite auf einen aktiven Turbo-Entry in Layout, Elternseiten oder Seite geprüft.
+Das wirksame Layout muss `addEncore` aktivieren. Im Q&A-Modul sowie bei nicht
+bestimmbarer Seite erfolgt die globale Konfigurationsprüfung. Fehlt ein Entry,
+erscheint höchstens eine übersetzte Info-Meldung pro Request. Andere Element-
+und Seitentypen lösen keine Prüfung aus. Es gibt weder automatische Aktivierung
+noch Frontend-Hinweis oder Build-Prüfung (FEATURES.md §3, Entscheidung D15).

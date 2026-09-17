@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 return [
+    'qna.backend.turbo_missing_page' => 'Auf dieser Seite ist kein Turbo-Entry aktiv. Aktivieren Sie „huh_ux_turbo_encore“ oder „huh_ux_turbo_encore_no_drive“ im Seitenlayout oder in der Seitenstruktur, sonst werden die Q&A-Elemente nicht geladen.',
+    'qna.backend.turbo_missing_global' => 'In keinem Seitenlayout und auf keiner Seite ist ein Turbo-Entry aktiv. Aktivieren Sie „huh_ux_turbo_encore“ oder „huh_ux_turbo_encore_no_drive“, sonst werden die Q&A-Elemente nicht geladen.',
+
     'qna.question.answered' => 'Beantwortet',
     'qna.question.mark_answered' => 'Als beantwortet markieren',
     'qna.question.mark_unanswered' => 'Als unbeantwortet markieren',

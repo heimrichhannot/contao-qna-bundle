@@ -449,3 +449,63 @@ Auch Feature 1 erfordert eine Schemaergänzung (FEATURES.md §0.6 ist entspreche
 Das neue Feld in `tl_content` wird durch Contaos reguläre Schema-Migration
 angelegt (Doctrine integer, unsigned, Default 0), wie im Feature-1-Prompt
 explizit verlangt. Keine eigene Migrationsklasse ist nötig.
+
+## D15: Backend-Hinweis bei fehlendem Turbo-Entry (17.09.2026)
+
+Drei `config.onload`-Callbacks prüfen Q&A-Inhaltselemente im Edit-Modus,
+Bühnenseiten im Edit-Modus sowie den Einstieg ins Q&A-Modul. Ein gemeinsamer
+Prüfservice erkennt beide Turbo-Entries über die Konstanten `DEFAULT` und
+`NO_DRIVER`; ein Meldungsservice übersetzt die Info und verhindert doppelte
+Meldungen pro Request. Die notwendige veränderliche Guard-Eigenschaft ist die
+begründete Ausnahme von `readonly`. Ein erfolgreicher Check verbraucht den
+Guard nicht, damit ein späterer fehlender Entry noch gemeldet werden kann.
+
+Alternative `onsubmit`: Ein Hinweis erst nach dem Speichern käme zu spät und
+würde den Moduleinstieg nicht abdecken. Andere Inhaltstypen verlassen den
+Callback vor jeder Modell- oder Schemaabfrage. Composer und Service-Konfiguration
+bleiben unverändert, das Encore-Bundle wird nicht als Klasse referenziert.
+
+### Nachgelesene Belege
+
+Die folgenden Encore-Pfade liegen ausdrücklich im **DDEV-Projekt** unter
+`/home/dev/Kunden/contao/contao_0507/vendor/heimrichhannot/contao-encore-bundle/`:
+
+| Fakt | Pfad |
+| --- | --- |
+| Feldname `encoreEntries` | `src/Dca/EncoreEntriesSelectField.php::NAME_DEFAULT` |
+| `blob NULL`, serialisierte Zeilen mit `entry` und optional `active` | `src/EventListener/DcaField/EncoreEntriesSelectFieldListener.php::onLoadDataContainer()` |
+| Aktiv-Checkbox für beide Tabellen | `contao/dca/tl_layout.php`, `contao/dca/tl_page.php` |
+| Fehlendes oder null `active` gilt als aktiv, sonst PHP-Truthy | `src/Asset/PageEntrypoints.php::generatePageEntrypoints()`; aktueller Nachfolger `src/EntryPoint/EntryPointsBuilder.php::build()` verwendet `active ?? true` |
+| Layout und Seitenkette werden gesammelt | `src/Asset/PageEntrypoints.php::collectPageEntries()`, `src/EntryPoint/EntryPointsBuilder.php::build()` |
+| `addEncore` ist Voraussetzung für die gesamte Seite | `src/Helper/ConfigurationHelper.php::isEnabledOnPage()`; `src/DataContainer/LayoutContainer.php::onLoadCallback()` |
+
+Im Bundle-Repository nachgelesen:
+
+| API | Pfad unter `vendor/` |
+| --- | --- |
+| Turbo-Konstanten | `heimrichhannot/contao-ux-turbo-encore/src/EncoreExtension.php` |
+| Info-Meldung und Adapter-Vorbild | `contao/core-bundle/contao/library/Contao/Message.php::addInfo()`, `contao/core-bundle/src/EventListener/DataContainer/LegacyTemplatesListener.php` |
+| Callback-Attribut, Request- und Record-Zugriff | `contao/core-bundle/src/DependencyInjection/Attribute/AsCallback.php`, `contao/core-bundle/src/EventListener/DataContainer/PreviewLinkListener.php` |
+| Record ist Array oder null | `contao/core-bundle/contao/classes/DataContainer.php::getCurrentRecord()`, `contao/core-bundle/contao/drivers/DC_Table.php::getCurrentRecord()` |
+| Vererbtes Layout und Trail | `contao/core-bundle/contao/models/PageModel.php::findWithDetails()` / `loadDetails()` |
+| Modelle, rohe optionale Felder, Deserialisierung | `contao/core-bundle/contao/models/ArticleModel.php`, `contao/core-bundle/contao/models/LayoutModel.php`, `contao/core-bundle/contao/library/Contao/Model.php::findById()` / `row()`, `contao/core-bundle/contao/library/Contao/StringUtil.php::deserialize()` |
+| Testbare Adapter | `contao/core-bundle/src/Framework/ContaoFramework.php::getAdapter()`, `contao/core-bundle/src/Framework/Adapter.php` |
+
+### Präzisierungen gegenüber dem Prompt
+
+* Ohne `addEncore` im effektiven Layout sind auch Seiten-Entries unwirksam:
+  Die Seitenprüfung gibt deshalb sofort false zurück, statt nur den Layout-Blob
+  zu überspringen. Die globale Prüfung bleibt die spezifizierte Suche nach
+  Konfiguration, ohne Zuordnung sämtlicher Seiten zu Layouts.
+* Der Session-Callback benötigt keinen Datensatz und keinen Edit-Modus; sonst
+  würde die gemeinsame Record-Regel des Prompts den ausdrücklich verlangten
+  Hinweis beim Moduleinstieg verhindern. Ohne Request tut er nichts.
+* `trail` enthält auch die Seite selbst und gegebenenfalls 0. Diese werden
+  übersprungen; die Seite wird zuletzt direkt geprüft.
+* Schema-Spalten werden einmal je globaler Prüfung für **beide** Tabellen
+  geprüft, einschließlich `addencore`. Optionale Modellfelder werden über
+  `row()` gelesen; fehlende Encore-Felder verursachen keine Fehler.
+* `PageEntrypoints` ist im installierten Vendor als deprecated markiert. Der
+  aktuelle `EntryPointsBuilder` bestätigt die verwendete Zeilen-Semantik.
+  Wie §3.3 vorgegeben prüft der Service das Vorhandensein aktiver Zeilen,
+  nicht den fertigen Build oder programmatische Encore-Event-Overrides.

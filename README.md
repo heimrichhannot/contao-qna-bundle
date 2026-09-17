@@ -32,6 +32,12 @@ head scripts exposing the instance as `window.Turbo`, which the Q&A entry
 reuses instead of bundling a second copy. If neither is active, the Q&A
 JavaScript logs an error to the browser console.
 
+The back end shows an informational hint when editing Q&A content elements or
+stage pages if no Turbo entry is active for that page. The Q&A module also
+checks whether a Turbo entry is configured anywhere in the project. Page-level
+entries require Encore to be enabled in the effective layout (`addEncore`).
+The hint checks configuration only, not the generated Encore build.
+
 Consequence: the host project needs an Encore build (`yarn`/`webpack`). See
 the Encore Bundle documentation for the project setup.
 
