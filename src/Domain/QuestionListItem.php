@@ -16,6 +16,7 @@ final readonly class QuestionListItem
         public bool $hasVoted,
         public bool $answered = false,
         public bool $isOwn = false,
+        public int $round = 1,
     ) {
     }
 }

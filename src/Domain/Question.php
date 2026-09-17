@@ -13,6 +13,7 @@ final readonly class Question
         public string $question,
         public int $createdAt,
         public bool $answered = false,
+        public int $round = 1,
     ) {
     }
 }

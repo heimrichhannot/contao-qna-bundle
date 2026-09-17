@@ -18,6 +18,7 @@ final readonly class Session
         public SessionState $state,
         public ?int $startedAt,
         public ?int $endedAt,
+        public int $round = 1,
     ) {
     }
 
@@ -37,6 +38,20 @@ final readonly class Session
         }
     }
 
+    public function withRestart(int $timestamp): self
+    {
+        return new self(
+            $this->id,
+            $this->title,
+            $this->alias,
+            $this->published,
+            SessionState::OPEN,
+            $timestamp,
+            null,
+            $this->round + 1,
+        );
+    }
+
     public function withState(SessionState $state, int $timestamp): self
     {
         return new self(
@@ -47,6 +62,7 @@ final readonly class Session
             $state,
             SessionState::OPEN === $state ? $timestamp : $this->startedAt,
             SessionState::CLOSED === $state ? $timestamp : $this->endedAt,
+            $this->round,
         );
     }
 }
