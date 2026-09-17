@@ -445,7 +445,7 @@ Core-Belege unter `vendor/contao/core-bundle/`:
   `src/Controller/AbstractFragmentController.php::isBackendScope()`:
   Editor-Kontext und Scope-Trennung.
 
-Abweichend von FEATURES §0.7 erfordert auch Feature 1 eine Schemaergänzung:
+Auch Feature 1 erfordert eine Schemaergänzung (FEATURES.md §0.6 ist entsprechend korrigiert):
 Das neue Feld in `tl_content` wird durch Contaos reguläre Schema-Migration
 angelegt (Doctrine integer, unsigned, Default 0), wie im Feature-1-Prompt
 explizit verlangt. Keine eigene Migrationsklasse ist nötig.
