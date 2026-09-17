@@ -20,7 +20,7 @@ $GLOBALS['TL_DCA']['tl_qna_question'] = [
                 'id' => 'primary',
                 'pid' => 'index',
                 'createdAt' => 'index',
-                'pid,createdAt' => 'index',
+                'pid,round,createdAt' => 'index',
                 'pid,memberId,createdAt' => 'index',
             ],
         ],
@@ -29,13 +29,13 @@ $GLOBALS['TL_DCA']['tl_qna_question'] = [
         'sorting' => [
             'mode' => DataContainer::MODE_PARENT,
             'fields' => ['createdAt DESC'],
-            'panelLayout' => 'search,limit',
+            'panelLayout' => 'search,filter,limit',
             'defaultSearchField' => 'question',
-            'headerFields' => ['title', 'alias', 'published', 'state', 'startedAt', 'endedAt'],
+            'headerFields' => ['title', 'alias', 'published', 'state', 'startedAt', 'endedAt', 'round'],
         ],
         'label' => [
-            'fields' => ['question'],
-            'format' => '%s',
+            'fields' => ['question', 'round'],
+            'format' => '%s <span class="label-info">[%s]</span>',
         ],
         'global_operations' => [],
         'operations' => ['delete', 'show'],
@@ -43,6 +43,11 @@ $GLOBALS['TL_DCA']['tl_qna_question'] = [
     'fields' => [
         'id' => [
             'sql' => ['type' => 'integer', 'unsigned' => true, 'autoincrement' => true],
+        ],
+        'round' => [
+            'filter' => true,
+            'eval' => ['rgxp' => 'natural'],
+            'sql' => ['type' => 'integer', 'unsigned' => true, 'default' => 1],
         ],
         'tstamp' => [
             'sql' => ['type' => 'integer', 'unsigned' => true, 'default' => 0],

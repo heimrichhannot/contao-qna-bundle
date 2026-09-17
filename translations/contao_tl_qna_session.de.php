@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 return [
+    'tl_qna_session.round.0' => 'Durchgang',
+    'tl_qna_session.round.1' => 'Der Durchgang der Fragerunde.',
     'tl_qna_session.title_legend' => 'Titel',
     'tl_qna_session.publish_legend' => 'Veröffentlichung',
     'tl_qna_session.title.0' => 'Titel',

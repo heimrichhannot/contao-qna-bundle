@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 return [
+    'tl_qna_question.round.0' => 'Round',
+    'tl_qna_question.round.1' => 'The round of the question session.',
     'tl_qna_question.answered.0' => 'Answered',
     'tl_qna_question.pid.0' => 'Question session',
     'tl_qna_question.pid.1' => 'The question session to which the question belongs.',
