@@ -33,7 +33,7 @@ final readonly class StageViewFactory
         $showStartButton = $canControl && SessionState::WAITING === $session->state;
         $showStopButton = $canControl && SessionState::OPEN === $session->state;
         $routeParameters = ['sessionId' => $session->id, 'sort' => $sort->value];
-        $questions = $showQuestions ? $this->questionGateway->findForStage($session->id, $sort) : [];
+        $questions = $showQuestions ? $this->questionGateway->findForStage($session->id, $session->round, $sort) : [];
         $answerUrls = [];
 
         if ($showStopButton) {

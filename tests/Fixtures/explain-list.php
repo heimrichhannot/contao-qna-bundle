@@ -22,7 +22,7 @@ try {
     $sessionId = (int) $connection->lastInsertId();
     $questions = new QnaQuestionGateway($connection);
     for ($i = 0; $i < 50; ++$i) {
-        $id = $questions->create($sessionId, 1, 'Benchmark question '.$i, 100 + $i);
+        $id = $questions->create($sessionId, 1, 'Benchmark question '.$i, 100 + $i, 1);
         $values = [];
         for ($member = 1; $member <= 200; ++$member) {
             $values[] = '('.$id.','.$member.')';
@@ -39,8 +39,8 @@ try {
     $sql = sprintf($sql, 'voteCount DESC, q.createdAt ASC');
     echo "50 questions, 200 votes each (10,000 votes), member 42\n";
     echo $sql."\n";
-    echo json_encode($connection->fetchAllAssociative('EXPLAIN '.$sql, ['sessionId' => $sessionId, 'memberId' => 42]), \JSON_PRETTY_PRINT | \JSON_THROW_ON_ERROR)."\n";
-    $analysis = $connection->fetchOne('ANALYZE FORMAT=JSON '.$sql, ['sessionId' => $sessionId, 'memberId' => 42]);
+    echo json_encode($connection->fetchAllAssociative('EXPLAIN '.$sql, ['sessionId' => $sessionId, 'round' => 1, 'memberId' => 42]), \JSON_PRETTY_PRINT | \JSON_THROW_ON_ERROR)."\n";
+    $analysis = $connection->fetchOne('ANALYZE FORMAT=JSON '.$sql, ['sessionId' => $sessionId, 'round' => 1, 'memberId' => 42]);
     if (!is_string($analysis)) {
         throw new LogicException('Missing query analysis.');
     }

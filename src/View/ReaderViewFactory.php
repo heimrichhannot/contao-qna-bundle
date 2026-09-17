@@ -116,7 +116,7 @@ final readonly class ReaderViewFactory
         $memberId = $this->memberProvider->getIdOrNull();
         $view = $this->createDynamic($session, null !== $memberId);
         $questions = $includeQuestions && $view->showQuestions
-            ? $this->questionGateway->findForSession($session->id, $memberId ?? 0)
+            ? $this->questionGateway->findForSession($session->id, $session->round, $memberId ?? 0)
             : [];
         $requestToken = $view->showQuestionForm || ($includeQuestions && $view->showVoteButtons)
             ? $this->csrfTokenManager->getDefaultTokenValue()

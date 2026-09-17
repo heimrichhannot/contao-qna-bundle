@@ -20,7 +20,7 @@ class QnaSessionGateway
     {
         $row = $this->connection->fetchAssociative(
             <<<'SQL'
-                SELECT id, title, alias, published, state, startedAt, endedAt
+                SELECT id, title, alias, published, state, startedAt, endedAt, round
                 FROM tl_qna_session
                 WHERE id = :id
                 SQL.($forUpdate ? ' FOR UPDATE' : ''),
@@ -35,7 +35,7 @@ class QnaSessionGateway
     {
         $row = $this->connection->fetchAssociative(
             <<<'SQL'
-                SELECT id, title, alias, published, state, startedAt, endedAt
+                SELECT id, title, alias, published, state, startedAt, endedAt, round
                 FROM tl_qna_session
                 WHERE id = :id AND published = :published
                 SQL,
@@ -50,7 +50,7 @@ class QnaSessionGateway
     {
         $row = $this->connection->fetchAssociative(
             <<<'SQL'
-                SELECT id, title, alias, published, state, startedAt, endedAt
+                SELECT id, title, alias, published, state, startedAt, endedAt, round
                 FROM tl_qna_session
                 WHERE alias = :alias AND published = :published
                 SQL,
@@ -68,7 +68,7 @@ class QnaSessionGateway
     {
         $rows = $this->connection->fetchAllAssociative(
             <<<'SQL'
-                SELECT id, title, alias, published, state, startedAt, endedAt
+                SELECT id, title, alias, published, state, startedAt, endedAt, round
                 FROM tl_qna_session
                 WHERE published = :published
                 ORDER BY title ASC
@@ -93,6 +93,29 @@ class QnaSessionGateway
                 'timestamp' => $timestamp,
                 'id' => $sessionId,
                 'expectedState' => SessionState::WAITING->value,
+            ],
+            [
+                'newState' => ParameterType::STRING,
+                'timestamp' => ParameterType::INTEGER,
+                'id' => ParameterType::INTEGER,
+                'expectedState' => ParameterType::STRING,
+            ],
+        );
+    }
+
+    public function markReopened(int $sessionId, int $timestamp): bool
+    {
+        return 1 === $this->connection->executeStatement(
+            <<<'SQL'
+                UPDATE tl_qna_session
+                SET state = :newState, startedAt = :timestamp, endedAt = NULL, round = round + 1, tstamp = :timestamp
+                WHERE id = :id AND state = :expectedState
+                SQL,
+            [
+                'newState' => SessionState::OPEN->value,
+                'timestamp' => $timestamp,
+                'id' => $sessionId,
+                'expectedState' => SessionState::CLOSED->value,
             ],
             [
                 'newState' => ParameterType::STRING,
@@ -141,6 +164,7 @@ class QnaSessionGateway
             SessionState::from($row->string('state')),
             $row->nullableInt('startedAt'),
             $row->nullableInt('endedAt'),
+            $row->int('round'),
         );
     }
 }
