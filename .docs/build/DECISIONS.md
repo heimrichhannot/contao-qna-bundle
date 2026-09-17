@@ -595,10 +595,13 @@ wurden sichtbar geprüft. Ein weiterer Restart auf Durchgang 3 ließ einen zuvor
 geladenen Reader-Vote mit Archiv-Meldung enden; der Zähler der dafür zusätzlich
 angelegten Fixture-Frage 1830 blieb 0. Testdaten bleiben als Demo-Nachweis erhalten.
 
-Offene Browser-Verifikation: In der eingebetteten Bühnenansicht lösten die
-geprüften Start-/Antwort-/Restart-Klicks keinen beobachteten POST aus. Polling
-funktionierte; die eigenständigen Frame-Formulare funktionierten ebenfalls.
-Eine Ursache ist nicht belegt. Der native Turbo-Bestätigungsdialog und der
-vollständige eingebettete Restart-Flow sind daher **nicht verifiziert**.
-Quellcode- und gerenderte Template-Tests ersetzen diesen Browsernachweis nicht.
-Es wurden weder Turbo-Konfiguration noch Bundle-JavaScript geändert.
+Browser-Verifikation: In der automatisierten Codex-Sitzung lösten die
+Start-/Antwort-/Restart-Klicks in der eingebetteten Bühnenansicht keinen
+beobachteten POST aus, während Polling und die eigenständigen Frame-Formulare
+funktionierten. Die wahrscheinliche Ursache liegt in der Browser-Automation
+(Klick-Werkzeuge mit Genehmigungspflicht), nicht im Bundle: Turbo verarbeitet
+Frame-Formulare unabhängig von Drive, und weder Turbo-Konfiguration noch
+Bundle-JavaScript wurden geändert. Der vollständige eingebettete Ablauf
+(Beenden → „Neue Fragerunde starten“ → nativer Turbo-Bestätigungsdialog →
+offener neuer Durchgang mit leerer Liste) wurde am 17.09.2026 manuell im
+Browser als angemeldetes Mitglied **bestätigt**.
