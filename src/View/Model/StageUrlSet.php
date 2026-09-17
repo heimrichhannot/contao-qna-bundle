@@ -10,6 +10,7 @@ final readonly class StageUrlSet
     public function __construct(
         public string $start,
         public string $stop,
+        public string $restart,
         public string $sortVotes,
         public string $sortTime,
         public array $answers,

@@ -217,7 +217,7 @@ final readonly class QnaActionController
             $this->security->isGranted(QnaSessionControlVoter::ATTRIBUTE, $session),
             $errorTranslationKey,
         );
-        $requestToken = $view->showStartButton || $view->showStopButton
+        $requestToken = $view->hasControls()
             ? $this->csrfTokenManager->getDefaultTokenValue()
             : null;
 
