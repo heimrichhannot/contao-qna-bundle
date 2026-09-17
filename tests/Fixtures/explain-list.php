@@ -29,6 +29,12 @@ try {
         }
         $connection->executeStatement('INSERT INTO tl_qna_vote (pid, memberId) VALUES '.implode(',', $values));
     }
+    // Earlier rounds make the current-round predicate selective without forcing an index.
+    for ($round = 2; $round <= 20; ++$round) {
+        for ($i = 0; $i < 50; ++$i) {
+            $questions->create($sessionId, 1, 'Other round question '.$i, 100 + $i, $round);
+        }
+    }
     if (isset($connection->createSchemaManager()->listTableColumns('tl_qna_question')['votecount'])) {
         $connection->executeStatement('UPDATE tl_qna_question SET voteCount = 200 WHERE pid = ?', [$sessionId]);
     }
@@ -37,7 +43,7 @@ try {
         throw new LogicException('Missing list query.');
     }
     $sql = sprintf($sql, 'voteCount DESC, q.createdAt ASC');
-    echo "50 questions, 200 votes each (10,000 votes), member 42\n";
+    echo "50 selected questions, 950 other-round questions, 200 votes each selected (10,000 votes), member 42\n";
     echo $sql."\n";
     echo json_encode($connection->fetchAllAssociative('EXPLAIN '.$sql, ['sessionId' => $sessionId, 'round' => 1, 'memberId' => 42]), \JSON_PRETTY_PRINT | \JSON_THROW_ON_ERROR)."\n";
     $analysis = $connection->fetchOne('ANALYZE FORMAT=JSON '.$sql, ['sessionId' => $sessionId, 'round' => 1, 'memberId' => 42]);

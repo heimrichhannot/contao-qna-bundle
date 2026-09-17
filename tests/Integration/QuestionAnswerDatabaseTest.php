@@ -10,6 +10,7 @@ use Doctrine\DBAL\DriverManager;
 use HeimrichHannot\QnaBundle\Configuration\QnaOptions;
 use HeimrichHannot\QnaBundle\Enum\QuestionSort;
 use HeimrichHannot\QnaBundle\Exception\QuestionAnsweredException;
+use HeimrichHannot\QnaBundle\Exception\QuestionArchivedException;
 use HeimrichHannot\QnaBundle\Exception\QuestionCooldownException;
 use HeimrichHannot\QnaBundle\Exception\SessionNotOpenException;
 use HeimrichHannot\QnaBundle\Exception\SessionNotPublishedException;
@@ -359,6 +360,101 @@ final class QuestionAnswerDatabaseTest extends TestCase
         self::assertSame(2, $this->questionCount());
         self::assertSame(1, $this->voteCount());
         self::assertSame('open', $this->connection->fetchOne('SELECT state FROM tl_qna_session WHERE id = ?', [$this->sessionId]));
+    }
+
+    #[DataProvider('lockOrders')]
+    public function testRestartCoordinatesWithSubmission(bool $restartFirst): void
+    {
+        $restart = function (): void {
+            if ('open' === $this->connection->fetchOne('SELECT state FROM tl_qna_session WHERE id = ?', [$this->sessionId])) {
+                $this->sessionService()->stop($this->sessionId);
+            }
+            $this->sessionService()->restart($this->sessionId);
+        };
+        if ($restartFirst) {
+            $this->sessionService()->stop($this->sessionId);
+        }
+        $submit = fn () => $this->operate('submit');
+        $this->overlap($restartFirst ? $restart : $submit, $restartFirst ? $submit : $restart, 'ok', true);
+        $questions = new QnaQuestionGateway($this->connection);
+        $current = $questions->findForStage($this->sessionId, 2);
+        self::assertCount($restartFirst ? 1 : 0, $current);
+        self::assertCount($restartFirst ? 1 : 2, $questions->findForSession($this->sessionId, 1, 0));
+        $round = $this->integer($this->connection->fetchOne('SELECT round FROM tl_qna_question WHERE pid = ? AND memberId = ?', [$this->sessionId, 2147483647]));
+        self::assertSame($restartFirst ? 2 : 1, $round);
+        self::assertSame(2, (new QnaSessionGateway($this->connection))->find($this->sessionId)?->round);
+        $this->assertCounters();
+    }
+
+    public function testSubmissionBeforeRestartOfClosedSessionIsRejected(): void
+    {
+        $this->sessionService()->stop($this->sessionId);
+        $this->overlap(function (): void {
+            (new QnaSessionGateway($this->connection))->find($this->sessionId, true);
+            try {
+                $this->operate('submit');
+                self::fail('Closed session must reject submission.');
+            } catch (SessionNotOpenException) {
+                self::assertSame(1, $this->questionCount());
+            }
+        }, fn () => $this->sessionService()->restart($this->sessionId), 'ok');
+        self::assertSame([], (new QnaQuestionGateway($this->connection))->findForStage($this->sessionId, 2));
+    }
+
+    /** @return iterable<string, array{string, bool}> */
+    public static function restartWriteOrders(): iterable
+    {
+        foreach (['vote', 'answer', 'unanswer'] as $operation) {
+            yield $operation.' first' => [$operation, false];
+            yield 'restart before '.$operation => [$operation, true];
+        }
+    }
+
+    #[DataProvider('restartWriteOrders')]
+    public function testRestartCoordinatesWithOldQuestionWrites(string $operation, bool $restartFirst): void
+    {
+        if ('unanswer' === $operation) {
+            $this->operate('answer');
+        }
+        $restart = function (): void {
+            if ('open' === $this->connection->fetchOne('SELECT state FROM tl_qna_session WHERE id = ?', [$this->sessionId])) {
+                $this->sessionService()->stop($this->sessionId);
+            }
+            $this->sessionService()->restart($this->sessionId);
+        };
+        if ($restartFirst) {
+            $this->sessionService()->stop($this->sessionId);
+        }
+        $write = fn () => $this->operate($operation);
+        $this->overlap($restartFirst ? $restart : $write, $restartFirst ? $write : $restart, $restartFirst ? QuestionArchivedException::class : 'ok', true);
+        self::assertSame('vote' === $operation && !$restartFirst ? 1 : 0, $this->voteCount());
+        $questions = new QnaQuestionGateway($this->connection);
+        self::assertSame('answer' === $operation ? !$restartFirst : ('unanswer' === $operation && $restartFirst), $questions->find($this->questionId)?->answered);
+        self::assertSame([], $questions->findForStage($this->sessionId, 2));
+        $this->assertCounters();
+    }
+
+    public function testRepeatedRestartsPreserveHistoryAndCooldown(): void
+    {
+        $questions = new QnaQuestionGateway($this->connection);
+        $first = $this->questionService(new QnaVoteGateway($this->connection))->create($this->sessionId, 'First round');
+        $this->sessionService()->stop($this->sessionId);
+        self::assertSame(2, $this->sessionService()->restart($this->sessionId)->round);
+        try {
+            $this->operate('submit');
+            self::fail('Restart must not reset cooldown.');
+        } catch (QuestionCooldownException) {
+            self::assertSame(2, $this->questionCount());
+        }
+        $second = $questions->create($this->sessionId, 1, 'Second round', 200, 2);
+        $this->sessionService()->stop($this->sessionId);
+        self::assertSame(3, $this->sessionService()->restart($this->sessionId)->round);
+        $third = $questions->create($this->sessionId, 1, 'Third round', 300, 3);
+        foreach ([1 => [$this->questionId, $first->id], 2 => [$second], 3 => [$third]] as $round => $ids) {
+            self::assertSame($ids, array_column($questions->findForStage($this->sessionId, $round, QuestionSort::TIME), 'id'));
+            self::assertSame($ids, array_column($questions->findForSession($this->sessionId, $round, 0, QuestionSort::TIME), 'id'));
+            self::assertSame($ids, array_map($this->integer(...), $this->connection->fetchFirstColumn('SELECT id FROM tl_qna_question WHERE pid = ? AND round = ? ORDER BY createdAt', [$this->sessionId, $round])));
+        }
     }
 
     private function operate(string $operation): void
