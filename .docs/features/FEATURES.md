@@ -97,7 +97,8 @@ Doctrine-Schemarepräsentation (`AGENTS.md`).
 
 Empfohlene Reihenfolge: **Feature 1 → Feature 3 → Feature 2.**
 
-Begründung: Feature 1 und 3 sind klein bzw. unabhängig und ändern kein Schema.
+Begründung: Feature 1 und 3 sind klein bzw. unabhängig; Feature 1 ergänzt nur eine
+Spalte in `tl_content`, Feature 3 ändert kein Schema.
 Feature 2 ist das größte, ändert zwei Tabellen und berührt Gateways, Services,
 Views, Controller, Templates und Integrationstests. Es soll auf einer sauberen,
 committeten Basis beginnen. Die Features haben keine Codeabhängigkeit
