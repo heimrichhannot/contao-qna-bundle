@@ -509,3 +509,96 @@ Im Bundle-Repository nachgelesen:
   aktuelle `EntryPointsBuilder` bestätigt die verwendete Zeilen-Semantik.
   Wie §3.3 vorgegeben prüft der Service das Vorhandensein aktiver Zeilen,
   nicht den fertigen Build oder programmatische Encore-Event-Overrides.
+
+## D14: Neustart mit Durchgangszähler (17.09.2026)
+
+Entscheidung gemäß FEATURES.md §2: Session und Fragen tragen `round` (unsigned
+integer, Default 1). `restart()` öffnet nur eine geschlossene veröffentlichte
+Session, erhöht den Zähler, ersetzt den Startzeitpunkt und leert den Endzeitpunkt.
+Start bleibt auf `waiting` beschränkt. Alle Übergänge sperren zuerst die Session
+und verwenden einen bedingten Status-UPDATE. Neue Fragen übernehmen den Durchgang
+aus der gesperrten Zeile; die Sperrfolge Session → Frage → Vote bleibt erhalten.
+
+Ein Archiv-Flag pro Frage wurde verworfen: Es würde beim Neustart alle Fragen
+umschreiben und die Zuordnung mehrerer Durchgänge verlieren. Der Zähler macht
+den Neustart zur O(1)-Operation; alte Fragen, Votes und Antwort-Markierungen
+bleiben unverändert. Frontend-Listen filtern auf den aktuellen Durchgang.
+Schreibzugriffe auf alte Fragen werden nach Frage/Zuordnung, Session-Existenz und
+Offenheitsprüfung mit `QuestionArchivedException` (422) abgewiesen. Der Cooldown
+bleibt als Missbrauchsschutz durchgangsübergreifend.
+
+`StageView::hasControls()` umfasst Start, Stop und Restart. Beide Controller
+verwenden diese Quelle für Token-Ausgabe bzw. Cacheentscheidung. Geschlossene
+Operator-Frames bleiben daher privat; Zuschauer behalten die bisherige Cachepolitik.
+
+Keine eigene Migration: Die DCA-Defaults ordnen alle Bestandsdaten Durchgang 1 zu.
+Der Backend-Durchgang ist nicht editierbar; die Fragenliste zeigt ihn als zweites
+Label-Feld und bietet ihn über `search,filter,limit` im Filterpanel an.
+
+Nachgelesene Contao-Belege unter `vendor/contao/core-bundle/`:
+
+* `contao/classes/DataContainer.php`: Sortierkonstanten und `generateRecordLabel()`
+  mit `list.label.fields`/`format`.
+* `contao/drivers/DC_Table.php:4476`: Elternansicht ruft `generateRecordLabel()` auf;
+  `headerFields` und Filterpanel werden vom bestehenden Driver ausgewertet.
+* `contao/dca/tl_content.php`: `rgxp => natural`.
+* `src/Command/MigrateCommand.php`: nichtinteraktiv ohne `--with-deletes` werden
+  fremde DROP-Vorschläge nicht ausgeführt; der ersetzte Index wird dennoch entfernt.
+* `src/Csrf/ContaoCsrfTokenManager.php::getDefaultTokenValue()` und
+  `src/Exception/PageNotFoundException.php`: bestehende Controller-APIs bestätigt.
+
+Turbo-Bestätigung vor Templateänderung geprüft unter
+`/home/dev/Kunden/contao/contao_0507/node_modules/@hotwired/turbo/dist/turbo.es2017-esm.js:1154-1161`:
+`FormSubmission.start()` wertet `data-turbo-confirm` aus und bricht bei Ablehnung ab.
+
+Reale DDL aus `ddev exec vendor/bin/contao-console contao:migrate --dry-run`:
+
+```sql
+DROP INDEX pid_createdat ON tl_qna_question
+ALTER TABLE tl_qna_question ADD round INT UNSIGNED DEFAULT 1 NOT NULL
+CREATE INDEX pid_round_createdat ON tl_qna_question (pid, round, createdat)
+ALTER TABLE tl_qna_session ADD round INT UNSIGNED DEFAULT 1 NOT NULL
+```
+
+`contao:migrate --no-interaction` meldete `Executed 4 SQL queries`.
+`round` wurde ohne Quoting akzeptiert. Der Demo-Host hat daneben bereits
+bestehende, nicht ausgeführte DROP-Vorschläge für fremde Tabellen und Spalten;
+ein global leerer Dry-Run ist deshalb keine zutreffende Zusage dieses Features.
+
+EXPLAIN über `tests/Fixtures/explain-list.php` mit `QNA_DATABASE_TESTS=1
+QNA_TEST_DB_NAME=db`: 50 Fragen im ausgewählten Durchgang, 950 in anderen
+Durchgängen, 10.000 Votes. Ohne Index-Hint:
+
+```text
+table q: type=ref, key=pid_round_createdat, key_len=8,
+         ref=const,const, rows=50, Extra=Using where; Using filesort
+table v: type=eq_ref, key=pid_memberid, rows=1,
+         Extra=Using where; Using index
+```
+
+Die ursprüngliche Fixture mit 50 von insgesamt 63 Fragen führte erwartungsgemäß
+zu `type=ALL, key=NULL`. Die zusätzlichen Durchgänge machen den Filter selektiv;
+dies ist Fixture-Evidenz, keine pauschale Produktions-Performancezusage.
+
+Die Zwei-Prozess-Tests prüfen echten InnoDB-Lock-Wait einschließlich veralteter
+Repeatable-Read-Snapshots. Wenn ein zulässiger Schreibzugriff zuerst gewinnt,
+folgen Stop und Restart gemeinsam im zweiten Testprozess. Bei bereits geschlossener
+Session wird eine zuerst eintreffende Einreichung abgewiesen; auch dieser Fall ist
+separat abgedeckt. Ein Neustart legalisiert keine Frage in einer geschlossenen Session.
+
+Browser-Verifikation im Demo-Host: Session 548 (`feature-2-restart`) wurde über
+das Backend angelegt und veröffentlicht. Eigenständig geöffnete Frame-Formulare
+führten Start, Frage, Antwort-Markierung, Stop und Restart erfolgreich aus.
+Nach Restart waren Bühne und der weiter offene Reader leer; der Reader wechselte
+von geschlossen zu offen. Backend-Label, Durchgangsfilter und `show` mit Durchgang 2
+wurden sichtbar geprüft. Ein weiterer Restart auf Durchgang 3 ließ einen zuvor
+geladenen Reader-Vote mit Archiv-Meldung enden; der Zähler der dafür zusätzlich
+angelegten Fixture-Frage 1830 blieb 0. Testdaten bleiben als Demo-Nachweis erhalten.
+
+Offene Browser-Verifikation: In der eingebetteten Bühnenansicht lösten die
+geprüften Start-/Antwort-/Restart-Klicks keinen beobachteten POST aus. Polling
+funktionierte; die eigenständigen Frame-Formulare funktionierten ebenfalls.
+Eine Ursache ist nicht belegt. Der native Turbo-Bestätigungsdialog und der
+vollständige eingebettete Restart-Flow sind daher **nicht verifiziert**.
+Quellcode- und gerenderte Template-Tests ersetzen diesen Browsernachweis nicht.
+Es wurden weder Turbo-Konfiguration noch Bundle-JavaScript geändert.

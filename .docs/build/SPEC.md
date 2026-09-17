@@ -136,6 +136,7 @@ auszuführende SQL-Datei als Installationsweg.
 | `state` | varchar(16) | `waiting` \| `open` \| `closed`, Default `waiting` |
 | `startedAt` | int, nullable | |
 | `endedAt` | int, nullable | |
+| `round` | unsigned int, Default 1 | aktueller Durchgang (FEATURES.md §2) |
 
 Indizes: `UNIQUE(alias)`, Index auf `published`.
 
@@ -154,10 +155,11 @@ Bühne erreichbar sein und Fragen oder Votes entgegennehmen.
 | `pid` | int | → `tl_qna_session.id` |
 | `memberId` | int | → `tl_member.id` |
 | `question` | text | |
+| `round` | unsigned int, Default 1 | Durchgang bei Einreichung aus gesperrter Session |
 | `voteCount` | unsigned int, Default 0 | wiederherstellbarer Vote-Cache (Refactor Phase 5) |
 | `createdAt` | int | fachlicher Erstellungszeitpunkt |
 
-Indizes: `pid`, `createdAt`, kombinierte Indizes `(pid, createdAt)` und
+Indizes: `pid`, `createdAt`, kombinierte Indizes `(pid, round, createdAt)` und
 `(pid, memberId, createdAt)`.
 
 Kind von `tl_qna_session` über `pid` (siehe Abschnitt 2.4).
@@ -243,18 +245,25 @@ den Cache aus den Votes. Siehe D10 in `DECISIONS.md`.
 
 ## 3. Statusmaschine
 
+Ergänzt durch FEATURES.md §2, Entscheidung D14:
+
 ```
-waiting --start--> open --stop--> closed
+waiting --start--> open --stop--> closed --restart--> open (round + 1)
 ```
 
-* Neue Session: `state = waiting`
-* Start: `state = open`, `startedAt = jetzt`
-* Ende: `state = closed`, `endedAt = jetzt`
-* `closed` ist final. `closed → open` ist verboten und wird serverseitig
-  abgewiesen.
+* Neue Session: `state = waiting`, `round = 1`.
+* Start nur aus `waiting`: `state = open`, `startedAt = jetzt`.
+* Ende nur aus `open`: `state = closed`, `endedAt = jetzt`.
+* Neustart nur aus `closed`: `state = open`, `startedAt = jetzt`,
+  `endedAt = NULL`, `round = round + 1`.
+* `start()` weist `closed` weiterhin ab; Neustart ist eine eigene Operation.
 
-Alle Übergänge werden ausschließlich im `SessionService` validiert und
-ausgeführt, nie im Controller, DCA oder Template.
+Alle Übergänge validiert der `SessionService` unter der Session-Sperre und
+schreibt sie bedingt mit `WHERE state = :expected`. Fragen tragen den Durchgang
+aus der gesperrten Session. Reader und Bühne filtern auf den aktuellen Durchgang.
+Alte Fragen und Votes bleiben im Backend erhalten; Votes und Antwort-Markierungen
+auf alte Fragen liefern 422. Die Prüfung auf offene Session hat Vorrang vor der
+Archivprüfung. Der Cooldown gilt weiterhin pro Mitglied/Session über Durchgänge.
 
 ---
 
@@ -271,7 +280,7 @@ Request wird nie akzeptiert — auch nicht als Fallback.
 
 ### 4.2 Autorisierung
 
-Start und Stopp einer Fragerunde sind steuernde Aktionen. Es genügt nicht,
+Start, Stopp und Neustart einer Fragerunde sind steuernde Aktionen. Es genügt nicht,
 sich allein auf den Contao-Seitenschutz zu verlassen.
 
 Implementiere einen eigenen Symfony Security Voter mit einem Attribut wie
@@ -284,7 +293,7 @@ Kein projektspezifisches Berechtigungssystem voraussetzen.
 
 ### 4.3 CSRF und Race Conditions
 
-Alle mutierenden Requests (Frage, Vote, Start, Stopp) laufen ausschließlich
+Alle mutierenden Requests (Frage, Vote, Start, Stopp, Neustart, Antwort-Markierung) laufen ausschließlich
 über POST und sind über das bestehende Contao-/Symfony-CSRF-System geschützt.
 Keine selbst erfundenen Tokens. Turbo-Formulare senden den Token korrekt mit.
 
@@ -555,7 +564,10 @@ Detailansicht. Nicht veröffentlichte Sessions erscheinen nicht.
 **`open`** — Laufindikator, Sortierumschaltung, Fragenliste mit Vote-Zahlen,
 Button „Fragerunde beenden".
 
-**`closed`** — Fragenliste und Vote-Zahlen, keine Möglichkeit zum Neustart.
+**`closed`** — Fragenliste und Vote-Zahlen des aktuellen Durchgangs; Operatoren
+sehen „Neue Fragerunde starten“ mit Bestätigung. Die Operator-Antwort bleibt
+wegen Formular und Token `private, no-store` (`StageView::hasControls()`).
+Zuschauer ohne Steuerrecht erhalten kein Formular (FEATURES.md §2).
 
 Unbekannter oder unveröffentlichter Alias → 404.
 
@@ -693,6 +705,7 @@ contao_qna_question_create    POST
 contao_qna_vote_create        POST
 contao_qna_session_start      POST
 contao_qna_session_stop       POST
+contao_qna_session_restart    POST
 ```
 
 Die Routen müssen im Contao-Frontend-Scope laufen (Scope-Konfiguration von
@@ -920,7 +933,7 @@ vorhandenen Instanz wird nicht gebaut.
 ### 12.2 Pflicht-Testfälle
 
 **Session** — neue Session ist `waiting`; Start setzt `open` und `startedAt`;
-Ende setzt `closed` und `endedAt`; `closed → open` wird abgewiesen.
+Ende setzt `closed` und `endedAt`; `start()` weist `closed → open` ab; `restart()` öffnet den nächsten Durchgang.
 
 **Published** — unveröffentlichte Session fehlt in Listen, ist über Reader und
 Bühne nicht erreichbar, nimmt weder Fragen noch Votes an.

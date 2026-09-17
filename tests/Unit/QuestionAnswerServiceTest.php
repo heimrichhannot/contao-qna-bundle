@@ -62,6 +62,7 @@ final class QuestionAnswerServiceTest extends TestCase
     public static function rejections(): iterable
     {
         $question = new Question(23, 7, 1, 'Question', 100);
+        yield 'archived' => [$question, new Session(7, '', '', true, SessionState::OPEN, 100, null, 2), \HeimrichHannot\QnaBundle\Exception\QuestionArchivedException::class];
         yield 'missing question' => [null, null, QuestionNotFoundException::class];
         yield 'wrong session' => [new Question(23, 8, 1, 'Question', 100), null, QuestionNotFoundException::class];
         yield 'missing session' => [$question, null, SessionNotFoundException::class];

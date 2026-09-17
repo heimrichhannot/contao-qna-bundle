@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 return [
+    'tl_qna_question.round.0' => 'Durchgang',
+    'tl_qna_question.round.1' => 'Der Durchgang der Fragerunde.',
     'tl_qna_question.answered.0' => 'Beantwortet',
     'tl_qna_question.pid.0' => 'Fragerunde',
     'tl_qna_question.pid.1' => 'Die Fragerunde, zu der die Frage gehört.',

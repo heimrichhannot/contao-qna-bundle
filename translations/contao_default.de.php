@@ -3,6 +3,10 @@
 declare(strict_types=1);
 
 return [
+    'qna.stage.restart' => 'Neue Fragerunde starten',
+    'qna.stage.restart_confirm' => 'Die bisherigen Fragen werden ausgeblendet. Neue Fragerunde starten?',
+    'qna.error.question_archived' => 'Diese Frage gehört zu einem früheren Durchgang und kann nicht mehr bearbeitet werden.',
+
     'qna.backend.turbo_missing_page' => 'Auf dieser Seite ist kein Turbo-Entry aktiv. Aktivieren Sie „huh_ux_turbo_encore“ oder „huh_ux_turbo_encore_no_drive“ im Seitenlayout oder in der Seitenstruktur, sonst werden die Q&A-Elemente nicht geladen.',
     'qna.backend.turbo_missing_global' => 'In keinem Seitenlayout und auf keiner Seite ist ein Turbo-Entry aktiv. Aktivieren Sie „huh_ux_turbo_encore“ oder „huh_ux_turbo_encore_no_drive“, sonst werden die Q&A-Elemente nicht geladen.',
 

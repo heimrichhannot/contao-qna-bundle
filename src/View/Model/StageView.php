@@ -24,10 +24,16 @@ final readonly class StageView
         public bool $showQuestions,
         public bool $showStartButton,
         public bool $showStopButton,
+        public bool $showRestartButton,
         public string $frameId,
         public string $sort,
         public ?string $errorTranslationKey,
     ) {
+    }
+
+    public function hasControls(): bool
+    {
+        return $this->showStartButton || $this->showStopButton || $this->showRestartButton;
     }
 
     /**
@@ -41,8 +47,10 @@ final readonly class StageView
      *     show_questions: bool,
      *     show_start_button: bool,
      *     show_stop_button: bool,
+     *     show_restart_button: bool,
      *     start_url: string,
      *     stop_url: string,
+     *     restart_url: string,
      *     request_token: string|null,
      *     frame_id: string,
      *     sort: string,
@@ -64,8 +72,10 @@ final readonly class StageView
             'show_questions' => $this->showQuestions,
             'show_start_button' => $this->showStartButton,
             'show_stop_button' => $this->showStopButton,
+            'show_restart_button' => $this->showRestartButton,
             'start_url' => $this->urls->start,
             'stop_url' => $this->urls->stop,
+            'restart_url' => $this->urls->restart,
             'request_token' => $requestToken,
             'frame_id' => $this->frameId,
             'sort' => $this->sort,

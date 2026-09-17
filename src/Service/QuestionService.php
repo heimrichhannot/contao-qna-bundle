@@ -56,10 +56,10 @@ final readonly class QuestionService
                 throw new QuestionCooldownException($this->options->questionCooldown - ($timestamp - $latestCreatedAt));
             }
 
-            $questionId = $this->questionGateway->create($session->id, $memberId, $question, $timestamp);
+            $questionId = $this->questionGateway->create($session->id, $memberId, $question, $timestamp, $session->round);
             $this->voteGateway->create($questionId, $memberId, $timestamp);
 
-            return new Question($questionId, $session->id, $memberId, $question, $timestamp);
+            return new Question($questionId, $session->id, $memberId, $question, $timestamp, round: $session->round);
         });
     }
 }

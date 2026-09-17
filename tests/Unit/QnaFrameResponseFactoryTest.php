@@ -30,7 +30,7 @@ final class QnaFrameResponseFactoryTest extends TestCase
         $questionGateway = $this->createMock(QnaQuestionGateway::class);
         $questionGateway->expects(self::once())
             ->method('findForSession')
-            ->with(7, 0)
+            ->with(7, 1, 0)
             ->willReturn([]);
         $security = $this->createMock(Security::class);
         $security->expects(self::once())->method('getUser')->willReturn(null);
@@ -137,7 +137,7 @@ final class QnaFrameResponseFactoryTest extends TestCase
         $questionGateway = $this->createMock(QnaQuestionGateway::class);
         $questionGateway->expects(self::once())
             ->method('findForStage')
-            ->with(7, QuestionSort::VOTES)
+            ->with(7, 1, QuestionSort::VOTES)
             ->willReturn([$question, $answered]);
         $context = null;
         $twig = $this->createMock(Environment::class);

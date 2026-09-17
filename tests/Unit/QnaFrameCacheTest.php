@@ -41,7 +41,7 @@ final class QnaFrameCacheTest extends TestCase
     #[DataProvider('stageCases')]
     public function testStageCacheDependsOnRenderedControls(SessionState $state, bool $control, bool $stream): void
     {
-        $hasControls = $control && SessionState::CLOSED !== $state;
+        $hasControls = $control;
         $request = Request::create('/_qna/stage/7/questions?sort=time');
         if ($stream) {
             $request->headers->set('Accept', TurboResponseFactory::TURBO_STREAM_CONTENT_TYPE);

@@ -32,8 +32,9 @@ final readonly class StageViewFactory
         $showQuestions = SessionState::WAITING !== $session->state;
         $showStartButton = $canControl && SessionState::WAITING === $session->state;
         $showStopButton = $canControl && SessionState::OPEN === $session->state;
+        $showRestartButton = $canControl && SessionState::CLOSED === $session->state;
         $routeParameters = ['sessionId' => $session->id, 'sort' => $sort->value];
-        $questions = $showQuestions ? $this->questionGateway->findForStage($session->id, $sort) : [];
+        $questions = $showQuestions ? $this->questionGateway->findForStage($session->id, $session->round, $sort) : [];
         $answerUrls = [];
 
         if ($showStopButton) {
@@ -54,6 +55,7 @@ final readonly class StageViewFactory
             new StageUrlSet(
                 $this->urlGenerator->generate('contao_qna_session_start', $routeParameters),
                 $this->urlGenerator->generate('contao_qna_session_stop', $routeParameters),
+                $this->urlGenerator->generate('contao_qna_session_restart', $routeParameters),
                 $this->urlGenerator->generate('contao_qna_stage_questions', [
                     'sessionId' => $session->id,
                     'sort' => QuestionSort::VOTES->value,
@@ -67,6 +69,7 @@ final readonly class StageViewFactory
             $showQuestions,
             $showStartButton,
             $showStopButton,
+            $showRestartButton,
             \sprintf('qna-session-%d-stage', $session->id),
             $sort->value,
             $errorTranslationKey,

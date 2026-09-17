@@ -3,6 +3,10 @@
 declare(strict_types=1);
 
 return [
+    'qna.stage.restart' => 'Start a new round',
+    'qna.stage.restart_confirm' => 'The current questions will be hidden. Start a new round?',
+    'qna.error.question_archived' => 'This question belongs to an earlier round and can no longer be changed.',
+
     'qna.backend.turbo_missing_page' => 'No Turbo entry is active on this page. Enable “huh_ux_turbo_encore” or “huh_ux_turbo_encore_no_drive” in the page layout or site structure; otherwise the Q&A elements will not load.',
     'qna.backend.turbo_missing_global' => 'No Turbo entry is active in any page layout or on any page. Enable “huh_ux_turbo_encore” or “huh_ux_turbo_encore_no_drive”; otherwise the Q&A elements will not load.',
 

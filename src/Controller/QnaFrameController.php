@@ -80,7 +80,7 @@ final readonly class QnaFrameController
             $sort,
             $this->security->isGranted(QnaSessionControlVoter::ATTRIBUTE, $session),
         );
-        $hasControls = $view->showStartButton || $view->showStopButton;
+        $hasControls = $view->hasControls();
         $requestToken = $hasControls
             ? $this->csrfTokenManager->getDefaultTokenValue()
             : null;

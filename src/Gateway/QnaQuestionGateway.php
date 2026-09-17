@@ -20,12 +20,13 @@ class QnaQuestionGateway
             q.question,
             q.createdAt,
             q.answered,
+            q.round,
             q.voteCount,
             CASE WHEN v.id IS NOT NULL THEN 1 ELSE 0 END AS hasVoted,
             CASE WHEN :memberId > 0 AND q.memberId = :memberId THEN 1 ELSE 0 END AS isOwn
         FROM tl_qna_question q
         LEFT JOIN tl_qna_vote v ON v.pid = q.id AND :memberId > 0 AND v.memberId = :memberId
-        WHERE q.pid = :sessionId
+        WHERE q.pid = :sessionId AND q.round = :round
         ORDER BY %s
         SQL;
 
@@ -37,7 +38,7 @@ class QnaQuestionGateway
     {
         $row = $this->connection->fetchAssociative(
             <<<'SQL'
-                SELECT id, pid, memberId, question, createdAt, answered
+                SELECT id, pid, memberId, question, createdAt, answered, round
                 FROM tl_qna_question
                 WHERE id = :id
                 SQL.($forUpdate ? ' FOR UPDATE' : ''),
@@ -58,6 +59,7 @@ class QnaQuestionGateway
             $row->string('question'),
             $row->int('createdAt'),
             $row->bool('answered'),
+            $row->int('round'),
         );
     }
 
@@ -89,12 +91,13 @@ class QnaQuestionGateway
             : (new Row(['createdAt' => $createdAt]))->int('createdAt');
     }
 
-    public function create(int $sessionId, int $memberId, string $question, int $createdAt): int
+    public function create(int $sessionId, int $memberId, string $question, int $createdAt, int $round): int
     {
         $this->connection->insert(
             'tl_qna_question',
             [
                 'pid' => $sessionId,
+                'round' => $round,
                 'memberId' => $memberId,
                 'question' => $question,
                 'createdAt' => $createdAt,
@@ -102,6 +105,7 @@ class QnaQuestionGateway
             ],
             [
                 'pid' => ParameterType::INTEGER,
+                'round' => ParameterType::INTEGER,
                 'memberId' => ParameterType::INTEGER,
                 'question' => ParameterType::STRING,
                 'createdAt' => ParameterType::INTEGER,
@@ -119,10 +123,11 @@ class QnaQuestionGateway
      */
     public function findForSession(
         int $sessionId,
+        int $round,
         int $memberId,
         QuestionSort $sort = QuestionSort::VOTES,
     ): array {
-        return $this->findList($sessionId, $memberId, $sort);
+        return $this->findList($sessionId, $round, $memberId, $sort);
     }
 
     /**
@@ -130,9 +135,9 @@ class QnaQuestionGateway
      *
      * @return list<QuestionListItem>
      */
-    public function findForStage(int $sessionId, QuestionSort $sort = QuestionSort::VOTES): array
+    public function findForStage(int $sessionId, int $round, QuestionSort $sort = QuestionSort::VOTES): array
     {
-        return $this->findList($sessionId, null, $sort);
+        return $this->findList($sessionId, $round, null, $sort);
     }
 
     public function deleteByMemberId(int $memberId): void
@@ -161,18 +166,19 @@ class QnaQuestionGateway
             $row->bool('hasVoted'),
             $row->bool('answered'),
             $row->bool('isOwn'),
+            $row->int('round'),
         );
     }
 
     /** @return list<QuestionListItem> */
-    private function findList(int $sessionId, ?int $memberId, QuestionSort $sort): array
+    private function findList(int $sessionId, int $round, ?int $memberId, QuestionSort $sort): array
     {
         // The interpolated ORDER BY fragment is defined by QuestionSort; no request value reaches the SQL template.
         $sql = \sprintf(self::LIST_SQL, $sort->orderBySql());
         $rows = $this->connection->fetchAllAssociative(
             $sql,
-            ['sessionId' => $sessionId, 'memberId' => $memberId ?? 0],
-            ['sessionId' => ParameterType::INTEGER, 'memberId' => ParameterType::INTEGER],
+            ['sessionId' => $sessionId, 'round' => $round, 'memberId' => $memberId ?? 0],
+            ['sessionId' => ParameterType::INTEGER, 'round' => ParameterType::INTEGER, 'memberId' => ParameterType::INTEGER],
         );
 
         return array_map($this->hydrateListItem(...), $rows);

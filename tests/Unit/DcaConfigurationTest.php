@@ -43,6 +43,26 @@ final class DcaConfigurationTest extends TestCase
         self::assertSame([], $list['global_operations']);
     }
 
+    public function testRoundSchemaAndBackendConfiguration(): void
+    {
+        foreach (['tl_qna_session', 'tl_qna_question'] as $table) {
+            $dca = $this->loadDca($table);
+            self::assertIsArray($dca['fields']);
+            self::assertIsArray($dca['fields']['round']);
+            self::assertSame(['type' => 'integer', 'unsigned' => true, 'default' => 1], $dca['fields']['round']['sql']);
+        }
+
+        $dca = $this->loadDca('tl_qna_question');
+        self::assertIsArray($dca['config']);
+        self::assertIsArray($dca['config']['sql']);
+        self::assertIsArray($dca['config']['sql']['keys']);
+        self::assertSame('index', $dca['config']['sql']['keys']['pid,round,createdAt']);
+        self::assertArrayNotHasKey('pid,createdAt', $dca['config']['sql']['keys']);
+        self::assertIsArray($dca['fields']);
+        self::assertIsArray($dca['fields']['round']);
+        self::assertTrue($dca['fields']['round']['filter']);
+    }
+
     public function testVoteUniquenessIsEnforcedBySchema(): void
     {
         $dca = $this->loadDca('tl_qna_vote');

@@ -38,6 +38,10 @@ $GLOBALS['TL_DCA']['tl_qna_session'] = [
         'id' => [
             'sql' => ['type' => 'integer', 'unsigned' => true, 'autoincrement' => true],
         ],
+        'round' => [
+            'eval' => ['rgxp' => 'natural'],
+            'sql' => ['type' => 'integer', 'unsigned' => true, 'default' => 1],
+        ],
         'tstamp' => [
             'sql' => ['type' => 'integer', 'unsigned' => true, 'default' => 0],
         ],

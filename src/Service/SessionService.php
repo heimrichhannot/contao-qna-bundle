@@ -63,6 +63,27 @@ final readonly class SessionService
         });
     }
 
+    public function restart(int $sessionId): Session
+    {
+        return $this->connection->transactional(function () use ($sessionId): Session {
+            $session = $this->lockPublishedSession($sessionId);
+
+            if (SessionState::CLOSED !== $session->state) {
+                throw new InvalidSessionTransitionException($session->state, SessionState::OPEN);
+            }
+
+            $timestamp = $this->clock->now()->getTimestamp();
+
+            if (!$this->sessionGateway->markReopened($sessionId, $timestamp)) {
+                $current = $this->sessionGateway->find($sessionId, true);
+
+                throw new InvalidSessionTransitionException($current->state ?? $session->state, SessionState::OPEN);
+            }
+
+            return $session->withRestart($timestamp);
+        });
+    }
+
     private function lockPublishedSession(int $sessionId): Session
     {
         $session = $this->sessionGateway->find($sessionId, true)

@@ -10,6 +10,7 @@ use Doctrine\DBAL\DriverManager;
 use HeimrichHannot\QnaBundle\Configuration\QnaOptions;
 use HeimrichHannot\QnaBundle\Enum\QuestionSort;
 use HeimrichHannot\QnaBundle\Exception\QuestionAnsweredException;
+use HeimrichHannot\QnaBundle\Exception\QuestionArchivedException;
 use HeimrichHannot\QnaBundle\Exception\QuestionCooldownException;
 use HeimrichHannot\QnaBundle\Exception\SessionNotOpenException;
 use HeimrichHannot\QnaBundle\Exception\SessionNotPublishedException;
@@ -51,7 +52,7 @@ final class QuestionAnswerDatabaseTest extends TestCase
         }
         $this->connection->insert('tl_qna_session', ['title' => 'Answered integration test', 'alias' => uniqid('qna-answer-test-', true), 'published' => '1', 'state' => 'open']);
         $this->sessionId = (int) $this->connection->lastInsertId();
-        $this->questionId = (new QnaQuestionGateway($this->connection))->create($this->sessionId, 0, 'Temporary integration question', 100);
+        $this->questionId = (new QnaQuestionGateway($this->connection))->create($this->sessionId, 0, 'Temporary integration question', 100, 1);
     }
 
     protected function tearDown(): void
@@ -70,30 +71,30 @@ final class QuestionAnswerDatabaseTest extends TestCase
     {
         (new QnaVoteGateway($this->connection))->create($this->questionId, 0, 100);
         $questions = new QnaQuestionGateway($this->connection);
-        self::assertFalse($questions->findForSession($this->sessionId, 0)[0]->hasVoted);
-        self::assertFalse($questions->findForStage($this->sessionId)[0]->hasVoted);
-        self::assertSame(1, $questions->findForSession($this->sessionId, 0)[0]->voteCount);
+        self::assertFalse($questions->findForSession($this->sessionId, 1, 0)[0]->hasVoted);
+        self::assertFalse($questions->findForStage($this->sessionId, 1)[0]->hasVoted);
+        self::assertSame(1, $questions->findForSession($this->sessionId, 1, 0)[0]->voteCount);
     }
 
     public function testOwnQuestionIsMarkedOnlyForItsAuthorAndNeverOnTheStage(): void
     {
         $questions = new QnaQuestionGateway($this->connection);
-        $otherId = $questions->create($this->sessionId, 4711, 'Question by somebody else', 200);
+        $otherId = $questions->create($this->sessionId, 4711, 'Question by somebody else', 200, 1);
 
         try {
-            $byAuthor = $this->indexById($questions->findForSession($this->sessionId, 4711));
+            $byAuthor = $this->indexById($questions->findForSession($this->sessionId, 1, 4711));
             self::assertTrue($byAuthor[$otherId]->isOwn);
             self::assertFalse($byAuthor[$this->questionId]->isOwn);
 
-            $byStranger = $this->indexById($questions->findForSession($this->sessionId, 4712));
+            $byStranger = $this->indexById($questions->findForSession($this->sessionId, 1, 4712));
             self::assertFalse($byStranger[$otherId]->isOwn);
 
             // memberId 0 is the guest/stage case and must never own anything,
             // even though the fixture question itself carries memberId 0.
-            $asGuest = $this->indexById($questions->findForSession($this->sessionId, 0));
+            $asGuest = $this->indexById($questions->findForSession($this->sessionId, 1, 0));
             self::assertFalse($asGuest[$this->questionId]->isOwn);
 
-            foreach ($questions->findForStage($this->sessionId) as $question) {
+            foreach ($questions->findForStage($this->sessionId, 1) as $question) {
                 self::assertFalse($question->isOwn);
             }
         } finally {
@@ -153,7 +154,7 @@ final class QuestionAnswerDatabaseTest extends TestCase
         }
 
         self::assertFalse($this->connection->isTransactionActive());
-        self::assertCount(1, (new QnaQuestionGateway($this->connection))->findForStage($this->sessionId));
+        self::assertCount(1, (new QnaQuestionGateway($this->connection))->findForStage($this->sessionId, 1));
     }
 
     public function testCountersSurviveVotesDuplicatesMemberAndQuestionDeletion(): void
@@ -172,11 +173,11 @@ final class QuestionAnswerDatabaseTest extends TestCase
         (new MemberDataEraser($this->connection, $questions, $votes))->erase(2147483647);
         $this->assertCounters();
         self::assertNull($questions->find($authored->id));
-        self::assertSame(1, $questions->findForStage($this->sessionId)[0]->voteCount);
+        self::assertSame(1, $questions->findForStage($this->sessionId, 1)[0]->voteCount);
         self::assertSame(0, $this->integer($this->connection->fetchOne('SELECT COUNT(*) FROM tl_qna_vote WHERE pid = ?', [$authored->id])));
         (new MemberDataEraser($this->connection, $questions, $votes))->erase(2147483646);
         $this->assertCounters();
-        self::assertSame(0, $questions->findForStage($this->sessionId)[0]->voteCount);
+        self::assertSame(0, $questions->findForStage($this->sessionId, 1)[0]->voteCount);
     }
 
     #[DataProvider('lockOrders')]
@@ -187,23 +188,23 @@ final class QuestionAnswerDatabaseTest extends TestCase
         $vote = fn () => $this->operate('vote');
         $this->overlap($eraseFirst ? $erase : $vote, $eraseFirst ? $vote : $erase, 'ok', true);
         $this->assertCounters();
-        self::assertSame($eraseFirst ? 1 : 0, (new QnaQuestionGateway($this->connection))->findForStage($this->sessionId)[0]->voteCount);
+        self::assertSame($eraseFirst ? 1 : 0, (new QnaQuestionGateway($this->connection))->findForStage($this->sessionId, 1)[0]->voteCount);
     }
 
     public function testReaderUsesCachedCountsAndMemberVoteLookupWithBothSorts(): void
     {
         $questions = new QnaQuestionGateway($this->connection);
-        $second = $questions->create($this->sessionId, 0, 'Later popular question', 200);
+        $second = $questions->create($this->sessionId, 0, 'Later popular question', 200, 1);
         $this->voteService()->vote($this->sessionId, $second);
         $this->voteService(2147483646)->vote($this->sessionId, $second);
         $this->assertCounters();
-        $byVotes = $questions->findForSession($this->sessionId, 2147483647, QuestionSort::VOTES);
+        $byVotes = $questions->findForSession($this->sessionId, 1, 2147483647, QuestionSort::VOTES);
         self::assertSame([$second, $this->questionId], array_column($byVotes, 'id'));
         self::assertSame([2, 0], array_column($byVotes, 'voteCount'));
         self::assertSame([true, false], array_column($byVotes, 'hasVoted'));
-        self::assertSame([false, false], array_column($questions->findForSession($this->sessionId, 123), 'hasVoted'));
-        self::assertSame([$this->questionId, $second], array_column($questions->findForStage($this->sessionId, QuestionSort::TIME), 'id'));
-        self::assertSame([false, false], array_column($questions->findForStage($this->sessionId), 'hasVoted'));
+        self::assertSame([false, false], array_column($questions->findForSession($this->sessionId, 1, 123), 'hasVoted'));
+        self::assertSame([$this->questionId, $second], array_column($questions->findForStage($this->sessionId, 1, QuestionSort::TIME), 'id'));
+        self::assertSame([false, false], array_column($questions->findForStage($this->sessionId, 1), 'hasVoted'));
     }
 
     public function testMigrationRebuildsCorruptCountersAndIsIdempotent(): void
@@ -258,13 +259,13 @@ final class QuestionAnswerDatabaseTest extends TestCase
         } catch (QuestionAnsweredException) {
             self::assertFalse($this->connection->isTransactionActive());
         }
-        self::assertSame(1, $questions->findForStage($this->sessionId)[0]->voteCount);
-        self::assertTrue($questions->findForSession($this->sessionId, 0)[0]->answered);
+        self::assertSame(1, $questions->findForStage($this->sessionId, 1)[0]->voteCount);
+        self::assertTrue($questions->findForSession($this->sessionId, 1, 0)[0]->answered);
         $this->answerService()->setAnswered($this->sessionId, $this->questionId, false);
         $this->answerService()->setAnswered($this->sessionId, $this->questionId, false);
         self::assertTrue($this->voteService()->vote($this->sessionId, $this->questionId)->hasVoted);
         self::assertTrue($this->voteService(2147483646)->vote($this->sessionId, $this->questionId)->hasVoted);
-        self::assertSame(2, $questions->findForStage($this->sessionId)[0]->voteCount);
+        self::assertSame(2, $questions->findForStage($this->sessionId, 1)[0]->voteCount);
     }
 
     /** @return iterable<string, array{bool}> */
@@ -310,14 +311,14 @@ final class QuestionAnswerDatabaseTest extends TestCase
     {
         $this->connection->delete('tl_qna_question', ['id' => $this->questionId]);
         if ($withPrevious) {
-            (new QnaQuestionGateway($this->connection))->create($this->sessionId, 2147483647, 'Older question outside cooldown', 100);
+            (new QnaQuestionGateway($this->connection))->create($this->sessionId, 2147483647, 'Older question outside cooldown', 100, 1);
         }
         // The child starts a repeatable-read snapshot before the first submission.
         $this->overlap(fn () => $this->operate('submit'), fn () => $this->operate('submit'), QuestionCooldownException::class, true);
         self::assertSame($withPrevious ? 2 : 1, $this->questionCount());
         self::assertSame(1, $this->voteCount());
         $this->assertCounters();
-        self::assertSame(1, (new QnaQuestionGateway($this->connection))->findForStage($this->sessionId)[0]->voteCount);
+        self::assertSame(1, (new QnaQuestionGateway($this->connection))->findForStage($this->sessionId, 1)[0]->voteCount);
     }
 
     #[DataProvider('lockOrders')]
@@ -339,7 +340,7 @@ final class QuestionAnswerDatabaseTest extends TestCase
         }, 'ok', true);
         self::assertSame(1, $this->voteCount());
         $this->assertCounters();
-        self::assertSame(1, (new QnaQuestionGateway($this->connection))->findForStage($this->sessionId)[0]->voteCount);
+        self::assertSame(1, (new QnaQuestionGateway($this->connection))->findForStage($this->sessionId, 1)[0]->voteCount);
     }
 
     #[DataProvider('lockOrders')]
@@ -359,6 +360,101 @@ final class QuestionAnswerDatabaseTest extends TestCase
         self::assertSame(2, $this->questionCount());
         self::assertSame(1, $this->voteCount());
         self::assertSame('open', $this->connection->fetchOne('SELECT state FROM tl_qna_session WHERE id = ?', [$this->sessionId]));
+    }
+
+    #[DataProvider('lockOrders')]
+    public function testRestartCoordinatesWithSubmission(bool $restartFirst): void
+    {
+        $restart = function (): void {
+            if ('open' === $this->connection->fetchOne('SELECT state FROM tl_qna_session WHERE id = ?', [$this->sessionId])) {
+                $this->sessionService()->stop($this->sessionId);
+            }
+            $this->sessionService()->restart($this->sessionId);
+        };
+        if ($restartFirst) {
+            $this->sessionService()->stop($this->sessionId);
+        }
+        $submit = fn () => $this->operate('submit');
+        $this->overlap($restartFirst ? $restart : $submit, $restartFirst ? $submit : $restart, 'ok', true);
+        $questions = new QnaQuestionGateway($this->connection);
+        $current = $questions->findForStage($this->sessionId, 2);
+        self::assertCount($restartFirst ? 1 : 0, $current);
+        self::assertCount($restartFirst ? 1 : 2, $questions->findForSession($this->sessionId, 1, 0));
+        $round = $this->integer($this->connection->fetchOne('SELECT round FROM tl_qna_question WHERE pid = ? AND memberId = ?', [$this->sessionId, 2147483647]));
+        self::assertSame($restartFirst ? 2 : 1, $round);
+        self::assertSame(2, (new QnaSessionGateway($this->connection))->find($this->sessionId)?->round);
+        $this->assertCounters();
+    }
+
+    public function testSubmissionBeforeRestartOfClosedSessionIsRejected(): void
+    {
+        $this->sessionService()->stop($this->sessionId);
+        $this->overlap(function (): void {
+            (new QnaSessionGateway($this->connection))->find($this->sessionId, true);
+            try {
+                $this->operate('submit');
+                self::fail('Closed session must reject submission.');
+            } catch (SessionNotOpenException) {
+                self::assertSame(1, $this->questionCount());
+            }
+        }, fn () => $this->sessionService()->restart($this->sessionId), 'ok');
+        self::assertSame([], (new QnaQuestionGateway($this->connection))->findForStage($this->sessionId, 2));
+    }
+
+    /** @return iterable<string, array{string, bool}> */
+    public static function restartWriteOrders(): iterable
+    {
+        foreach (['vote', 'answer', 'unanswer'] as $operation) {
+            yield $operation.' first' => [$operation, false];
+            yield 'restart before '.$operation => [$operation, true];
+        }
+    }
+
+    #[DataProvider('restartWriteOrders')]
+    public function testRestartCoordinatesWithOldQuestionWrites(string $operation, bool $restartFirst): void
+    {
+        if ('unanswer' === $operation) {
+            $this->operate('answer');
+        }
+        $restart = function (): void {
+            if ('open' === $this->connection->fetchOne('SELECT state FROM tl_qna_session WHERE id = ?', [$this->sessionId])) {
+                $this->sessionService()->stop($this->sessionId);
+            }
+            $this->sessionService()->restart($this->sessionId);
+        };
+        if ($restartFirst) {
+            $this->sessionService()->stop($this->sessionId);
+        }
+        $write = fn () => $this->operate($operation);
+        $this->overlap($restartFirst ? $restart : $write, $restartFirst ? $write : $restart, $restartFirst ? QuestionArchivedException::class : 'ok', true);
+        self::assertSame('vote' === $operation && !$restartFirst ? 1 : 0, $this->voteCount());
+        $questions = new QnaQuestionGateway($this->connection);
+        self::assertSame('answer' === $operation ? !$restartFirst : ('unanswer' === $operation && $restartFirst), $questions->find($this->questionId)?->answered);
+        self::assertSame([], $questions->findForStage($this->sessionId, 2));
+        $this->assertCounters();
+    }
+
+    public function testRepeatedRestartsPreserveHistoryAndCooldown(): void
+    {
+        $questions = new QnaQuestionGateway($this->connection);
+        $first = $this->questionService(new QnaVoteGateway($this->connection))->create($this->sessionId, 'First round');
+        $this->sessionService()->stop($this->sessionId);
+        self::assertSame(2, $this->sessionService()->restart($this->sessionId)->round);
+        try {
+            $this->operate('submit');
+            self::fail('Restart must not reset cooldown.');
+        } catch (QuestionCooldownException) {
+            self::assertSame(2, $this->questionCount());
+        }
+        $second = $questions->create($this->sessionId, 1, 'Second round', 200, 2);
+        $this->sessionService()->stop($this->sessionId);
+        self::assertSame(3, $this->sessionService()->restart($this->sessionId)->round);
+        $third = $questions->create($this->sessionId, 1, 'Third round', 300, 3);
+        foreach ([1 => [$this->questionId, $first->id], 2 => [$second], 3 => [$third]] as $round => $ids) {
+            self::assertSame($ids, array_column($questions->findForStage($this->sessionId, $round, QuestionSort::TIME), 'id'));
+            self::assertSame($ids, array_column($questions->findForSession($this->sessionId, $round, 0, QuestionSort::TIME), 'id'));
+            self::assertSame($ids, array_map($this->integer(...), $this->connection->fetchFirstColumn('SELECT id FROM tl_qna_question WHERE pid = ? AND round = ? ORDER BY createdAt', [$this->sessionId, $round])));
+        }
     }
 
     private function operate(string $operation): void

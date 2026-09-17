@@ -21,6 +21,8 @@ final class LockedContextLoaderTest extends TestCase
     /** @return iterable<string, array{?Session, ?Question, class-string<\Throwable>}> */
     public static function rejectionPrecedence(): iterable
     {
+        yield 'archived question' => [self::session(), new Question(23, 7, 1, 'Question', 100, round: 2), \HeimrichHannot\QnaBundle\Exception\QuestionArchivedException::class];
+        yield 'closed precedes archived' => [self::session(SessionState::CLOSED), new Question(23, 7, 1, 'Question', 100, round: 2), SessionNotOpenException::class];
         yield 'missing question takes precedence over missing session' => [
             null,
             null,

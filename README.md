@@ -1,7 +1,7 @@
 # Contao Q&A Bundle
 
 Question-and-answer sessions for events on Contao 5.7. Front end members can
-submit questions and vote; authenticated operators can open and close a
+submit questions and vote; authenticated operators can open, close and restart a
 session on a protected stage page.
 
 ## Requirements
@@ -215,9 +215,9 @@ implemented in services, HTTP semantics in controllers, and presentation in
 Twig. The tables are:
 
 - `tl_qna_session`: title, unique alias, publication flag, state
-  (`waiting`, `open`, `closed`) and start/end timestamps.
+  (`waiting`, `open`, `closed`), current `round` (default 1) and start/end timestamps.
 - `tl_qna_question`: parent session, author member ID, question text and
-  creation timestamp and a recoverable `voteCount` cache.
+  creation timestamp, submission `round` (default 1) and a recoverable `voteCount` cache.
 - `tl_qna_vote`: parent question, member ID and creation timestamp. A unique
   database index on `(pid, memberId)` makes one vote per member and question
   an invariant. Duplicate inserts are also handled idempotently by the vote
@@ -237,7 +237,7 @@ Turbo Stream updates the controls only when the server-side session state has
 changed, so normal question polling never replaces text being edited. The
 stage detail uses one polling frame.
 
-Question, vote, start and stop forms use POST and a Contao `REQUEST_TOKEN`.
+Question, vote, start, stop and restart forms use POST and a Contao `REQUEST_TOKEN`.
 Successful writes return a frame-local `303 See Other`; the redirected GET
 uses Turbo Streams to update the affected regions. A created question updates
 the list and resets the form once. A business rejection that must remain
@@ -272,7 +272,7 @@ queries and would not reduce the dominant request rate.
 
 ## Session-control authorization
 
-Start and stop require the voter attribute `QNA_SESSION_CONTROL`. The bundle's
+Start, stop and restart require the voter attribute `QNA_SESSION_CONTROL`. The bundle's
 default `QnaSessionControlVoter` grants it to every authenticated Contao front
 end member. Page protection is the first access boundary; a host project that
 needs roles, groups or per-session assignments must replace the default voter
@@ -320,7 +320,7 @@ system.
 
 - question and vote writes require an authenticated front end member; the
   member ID comes only from Symfony's security context, never request data;
-- all four writes are POST-only and CSRF-protected;
+- all writes are POST-only and CSRF-protected;
 - stage control additionally checks `QNA_SESSION_CONTROL`;
 - questions are accepted only for published, open sessions, are trimmed,
   length-limited and subject to a per-member/per-session cooldown;
@@ -368,7 +368,7 @@ optional stricter voter.
 During an open session, stage operators with `QNA_SESSION_CONTROL` can mark
 questions as answered and undo that mark. The stage groups unanswered questions
 first and answered questions last, retaining the selected vote/time ordering in
-each section. Closed sessions retain the groups and badges without controls.
+each section. Closed sessions retain the groups and badges without answer controls.
 Participants keep their vote-sorted list and see an “Answered” badge. Answered
 questions cannot receive votes, including from stale pages; undo restores voting.
 Existing votes remain intact. No answer text or completion timestamp is stored.
@@ -379,7 +379,31 @@ All interactive writes use the transaction and lock policy below. Explicit
 answered/unanswered POST actions retain Contao CSRF, ownership validation and the
 existing stage voter, with private, no-store 303 redirects retaining the sort.
 
+## Restarting a session
+
+After closing a session, operators can choose **Start a new round** on the stage
+and confirm that the current questions will be hidden. Restart increments the
+session's `round`, opens it, replaces `startedAt` and clears `endedAt`. Reader
+and stage lists then show only questions from that round. The reader notices
+the state change on its next idle poll (10 seconds by default).
+
+Questions, votes and answered flags from earlier rounds remain in the database
+and back end. The question list displays and filters by **Round**; the session's
+details show its current round. Old questions are not editable from the front
+end: stale votes and answered/unanswered actions return a private 422 frame
+with an archived-question message. The per-member/session cooldown spans rounds.
+
+Run the regular Contao database migration before serving this version. Both
+round columns default to 1, preserving existing sessions and question history.
+Restart changes one locked session row; it does not rewrite old questions.
+Closed operator frames contain the restart form and token and remain private,
+no-store. Cookie-free spectators without controls retain the existing cache policy.
+
 ## Transactions and locking
+
+The state machine is `waiting --start--> open --stop--> closed --restart--> open`.
+Only restart increments the round; start continues to reject closed sessions.
+All transitions use conditional updates guarded by their expected source state.
 
 `QuestionService`, `VoteService`, `QuestionAnswerService`, and `SessionService`
 each own a DBAL transaction on the same connection as their gateways. The lock
@@ -390,11 +414,12 @@ not start transactions or enforce business rules themselves.
 
 Every service locks the session with `SELECT … FOR UPDATE`, then checks its
 publication and required state using the shared `QnaSession` assertions. The
-lock remains held through commit or rollback. Start/stop therefore coordinate
+lock remains held through commit or rollback. Start/stop/restart therefore coordinate
 with submission, voting, and both answered/unanswered actions. If closure wins,
 the waiting write rejects the closed session; if a write wins, it completes
 before closure. Existing authorization, error responses, and validation
-precedence are retained.
+precedence are retained. Existing-question writes check existence/ownership, session
+existence, publication/open state, then the current round.
 
 Submission checks the clock and the member's latest question only after locking
 the session. Its current (locking) history read also works when a caller already
